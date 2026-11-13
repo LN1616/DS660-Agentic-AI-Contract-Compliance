@@ -38,6 +38,27 @@ copy .env.example .env            # then paste your key from https://aistudio.go
 
 The CUAD dataset is expected at `../CUAD_v1/CUAD_v1/` (set `CUAD_DIR` in `.env` to change it).
 
+## Setup for teammates (Windows)
+
+1. Accept the GitHub invitation, then in a terminal:
+   ```bash
+   cd D:\
+   git clone https://github.com/LN1616/DS660-Agentic-AI-Contract-Compliance.git
+   cd DS660-Agentic-AI-Contract-Compliance
+   python -m venv .venv
+   .venv\Scripts\activate
+   pip install -r requirements.txt
+   copy .env.example .env
+   ```
+   Clone into a short path such as `D:\` (Streamlit fails to install in very long folder paths).
+2. Create your own free key at https://aistudio.google.com/apikey and paste it into `.env` (`GEMINI_API_KEY=...`). Never commit or share the key.
+3. Optional: put the CUAD folder (`CUAD_v1/CUAD_v1/` with `full_contract_pdf/` and `master_clauses.csv`) anywhere and set `CUAD_DIR=` in `.env`. Without it the app still works with uploaded PDFs; the evaluation scripts need it.
+4. Check and run:
+   ```bash
+   python check_api.py
+   streamlit run app.py
+   ```
+
 ## Run
 
 ```bash

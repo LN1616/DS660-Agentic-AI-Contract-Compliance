@@ -89,7 +89,11 @@ with st.sidebar:
     st.caption(f"ใช้ {n_rules} กฎ · แก้ไขได้ที่แท็บ **นโยบายบริษัท**")
 
     st.subheader("2 · สัญญา")
-    source = st.radio("แหล่งสัญญา", ["ตัวอย่างจาก CUAD", "อัปโหลด PDF"], horizontal=True, label_visibility="collapsed")
+    has_cuad = (config.CUAD_DIR / "full_contract_pdf").exists()
+    source = st.radio("แหล่งสัญญา", ["ตัวอย่างจาก CUAD", "อัปโหลด PDF"] if has_cuad else ["อัปโหลด PDF"],
+                      horizontal=True, label_visibility="collapsed")
+    if not has_cuad:
+        st.caption("ไม่พบโฟลเดอร์ CUAD (ตั้ง CUAD_DIR ใน .env) จึงใช้ได้เฉพาะอัปโหลด PDF")
     if source == "อัปโหลด PDF":
         upload, sample = st.file_uploader("สัญญา (PDF)", type="pdf", key="contract_pdf"), None
     else:
