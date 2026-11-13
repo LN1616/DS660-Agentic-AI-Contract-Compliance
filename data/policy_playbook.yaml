@@ -1,0 +1,65 @@
+# Company procurement policy (sample playbook for the prototype).
+# Each rule maps to a CUAD category so CUAD labels can be used as ground truth.
+# "We" are always the BUYER / CUSTOMER: the party that receives the goods or services.
+#
+# cuad_category : column name in CUAD master_clauses.csv
+# if_absent     : status to give when the contract has no clause on this topic
+# keywords      : used by the verifier to double-check before accepting MISSING
+
+rules:
+  - id: P-01
+    title: Limitation of liability
+    title_th: เพดานความรับผิด
+    cuad_category: Cap On Liability
+    if_absent: MISSING
+    text: >
+      The contract must contain a limitation of liability clause. Any cap on the
+      supplier's liability must not be lower than the total fees paid or payable
+      under the contract in the 12 months before the claim. A cap lower than that
+      is VIOLATED. A cap that is roughly equal but worded differently is DEVIATED.
+    keywords: [limitation of liability, liable, liability, consequential damages, aggregate]
+
+  - id: P-02
+    title: Termination for convenience
+    title_th: สิทธิบอกเลิกสัญญาโดยไม่ต้องมีเหตุ
+    cuad_category: Termination For Convenience
+    if_absent: MISSING
+    text: >
+      The buyer must be able to terminate the contract for convenience (without
+      cause) by giving no more than 30 days' written notice. A longer notice period
+      is DEVIATED. If only the supplier can terminate for convenience, it is VIOLATED.
+    keywords: [terminate, termination, convenience, without cause, for any reason]
+
+  - id: P-03
+    title: Automatic renewal
+    title_th: การต่ออายุสัญญาอัตโนมัติ
+    cuad_category: Renewal Term
+    if_absent: COMPLIANT
+    text: >
+      The contract must not renew automatically. Any renewal must require the
+      written agreement of both parties. Automatic or evergreen renewal is VIOLATED.
+      Automatic renewal that the buyer can cancel with 30 days' notice or less is
+      DEVIATED. No renewal clause at all is COMPLIANT.
+    keywords: [renew, renewal, extend, extension, successive, evergreen]
+
+  - id: P-04
+    title: Audit rights
+    title_th: สิทธิตรวจสอบบัญชีและเอกสาร
+    cuad_category: Audit Rights
+    if_absent: MISSING
+    text: >
+      The buyer must have the right to inspect or audit the supplier's books,
+      records or facilities related to the contract. A right limited to less than
+      once per year, or needing more than 30 days' notice, is DEVIATED.
+    keywords: [audit, inspect, inspection, books and records, records]
+
+  - id: P-05
+    title: Supplier insurance
+    title_th: ประกันภัยของผู้ขาย
+    cuad_category: Insurance
+    if_absent: MISSING
+    text: >
+      The supplier must maintain insurance (for example general liability,
+      product liability or professional liability) during the contract. Insurance
+      required only from the buyer, not the supplier, is VIOLATED.
+    keywords: [insurance, insured, insurer, policy limits, coverage]
