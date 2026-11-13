@@ -15,13 +15,14 @@ from .trace import Trace
 
 PROMPT = """You review a supplier contract for the BUYER against the company policy rules below.
 Return one finding per rule. extracted_text must be copied word for word from the contract
-(empty string if MISSING). issue_description and action_required in Thai, suggested_redline in English.
+(empty string if MISSING). issue_description, action_required and executive_summary in {language}, suggested_redline in English.
 
 Policy rules:
 {rules}"""
 
 
-def review_single_call(pdf_path: Path, doc: ContractDocument, rules: list[dict], trace: Trace) -> ContractAuditReport:
+def review_single_call(pdf_path: Path, doc: ContractDocument, rules: list[dict], trace: Trace,
+                       lang: str = "th") -> ContractAuditReport:
     client = config.client()
     uploaded = client.files.upload(file=str(pdf_path))
     rules_text = "\n".join(f"- {r['id']} {r['title']}: {r['text'].strip()} "
@@ -33,7 +34,7 @@ def review_single_call(pdf_path: Path, doc: ContractDocument, rules: list[dict],
     try:
         resp = trace.call(lambda: client.models.generate_content(
             model=config.MODEL,
-            contents=[uploaded, PROMPT.format(rules=rules_text)],
+            contents=[uploaded, PROMPT.format(rules=rules_text, language={"th": "Thai", "en": "English"}[lang])],
             config=types.GenerateContentConfig(temperature=0, response_mime_type="application/json",
                                                response_json_schema=schema)), label="baseline single call")
     finally:

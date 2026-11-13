@@ -15,8 +15,8 @@ class ClauseFinding(BaseModel):
     extracted_text: str = Field(description="Exact sentence(s) copied verbatim from the contract. Empty string if MISSING.")
     compliance_status: Status
     risk_level: Risk
-    issue_description: str = Field(description="What is wrong or why it complies. Thai language.")
-    action_required: str = Field(description="What the buyer should do. Thai language.")
+    issue_description: str = Field(description="What is wrong or why it complies. Write in the report language.")
+    action_required: str = Field(description="What the buyer should do. Write in the report language.")
     suggested_redline: str = Field(description="Proposed replacement wording in English. Empty string if COMPLIANT.")
 
 
@@ -33,7 +33,7 @@ class ReviewedFinding(BaseModel):
 
 class ContractAuditReport(BaseModel):
     contract_title: str
-    executive_summary: str             # Thai
+    executive_summary: str             # in the report language
     findings: list[ReviewedFinding]
 
     @property
