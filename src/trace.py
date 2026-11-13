@@ -12,9 +12,21 @@ class Trace:
         self.run_name = run_name
         self.records: list[dict] = []
 
-    def call(self, fn, label: str):
+    def call(self, fn, label: str, retries: int = 4):
+        """Run one LLM call. Retries on overload (503) and rate limit (429) with backoff."""
         t0 = time.time()
-        resp = fn()
+        for attempt in range(retries + 1):
+            try:
+                resp = fn()
+                break
+            except Exception as e:
+                code = getattr(e, "code", None)
+                if code not in (429, 500, 503) or attempt == retries:
+                    raise
+                wait = min(60, 5 * 2 ** attempt)
+                self.records.append({"type": "retry", "label": label, "code": code, "wait_sec": wait})
+                print(f"    [{label}] Gemini busy ({code}), retrying in {wait}s ...", flush=True)
+                time.sleep(wait)
         u = getattr(resp, "usage_metadata", None)
         tin = (getattr(u, "prompt_token_count", 0) or 0) if u else 0
         tout = ((getattr(u, "candidates_token_count", 0) or 0) + (getattr(u, "thoughts_token_count", 0) or 0)) if u else 0

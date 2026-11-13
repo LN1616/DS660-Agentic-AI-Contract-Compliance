@@ -50,7 +50,7 @@ def main(n: int):
         pdf = pdf_path(fname)
         doc = ContractDocument(pdf.stem, extract_pages(pdf, use_vision=False))
         for system in ("B2 single call", "A1 agent"):
-            doc.seen.clear()
+            doc.reset()
             trace = Trace(f"eval_{system[:2]}_{pdf.stem[:20]}")
             t0 = time.time()
             rep = review_single_call(pdf, doc, rules, trace) if system.startswith("B2") else review(doc, rules, trace)

@@ -38,6 +38,13 @@ def normalize(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip().lower()
 
 
+PAGE_FOOTER = re.compile(r"(?i)^\s*(page\s+\d+\s+of\s+\d+.*|-?\s*\d{1,3}\s*-?|source:.*)$")
+
+
+def strip_boilerplate(text: str, boilerplate: set[str]) -> str:
+    return "\n".join(l for l in text.splitlines() if l.strip() not in boilerplate and not PAGE_FOOTER.match(l))
+
+
 def split_passages(pages: list[Page]) -> list[Passage]:
     passages, buf, section, start_page = [], [], "", 1
 
@@ -70,18 +77,41 @@ class ContractDocument:
         self._by_id = {p.id: p for p in self.passages}
         self._vec = TfidfVectorizer(ngram_range=(1, 2), sublinear_tf=True, stop_words="english")
         self._matrix = self._vec.fit_transform([p.text for p in self.passages])
-        self._norm_pages = {p.number: normalize(p.text) for p in pages}
-        self.seen: set[str] = set()   # passages the agent has looked at
+        self._norm_pages = {p.number: normalize(strip_boilerplate(p.text, self._boilerplate(pages)))
+                            for p in pages}
+        self.reset()
+
+    @staticmethod
+    def _boilerplate(pages: list[Page]) -> set[str]:
+        """Lines repeated on at least half the pages (headers/footers)."""
+        from collections import Counter
+        counts = Counter(l.strip() for p in pages for l in set(p.text.splitlines()) if l.strip())
+        return {l for l, c in counts.items() if len(pages) >= 3 and c >= len(pages) / 2}
+
+    def reset(self):
+        self.seen: set[str] = set()       # passages shown in search results (preview only)
+        self.read_ids: set[str] = set()   # passages the agent read in full
 
     # ---------- tools the agent can call ----------
-    def search(self, query: str, k: int = 5) -> list[dict]:
+    def ranked_ids(self, query: str, k: int = 5) -> list[str]:
+        """Passage ids by relevance. A query like 'Section 7.1' also matches that section number."""
+        ids = []
+        m = re.search(r"\b(\d{1,2}(?:\.\d{1,2}){0,3})\b", query)
+        if m and re.search(r"(?i)section|clause|article|^\s*\d", query):
+            ids = [p.id for p in self.passages if p.section.split()[-1:] == [m.group(1)]
+                   or p.section == m.group(1)][:k]
         scores = linear_kernel(self._vec.transform([query]), self._matrix).ravel()
-        top = scores.argsort()[::-1][:k]
-        out = []
-        for i in top:
-            if scores[i] <= 0:
+        for i in scores.argsort()[::-1]:
+            if len(ids) >= k or scores[i] <= 0:
                 break
-            p = self.passages[i]
+            if self.passages[i].id not in ids:
+                ids.append(self.passages[i].id)
+        return ids
+
+    def search(self, query: str, k: int = 5) -> list[dict]:
+        out = []
+        for pid in self.ranked_ids(query, k):
+            p = self._by_id[pid]
             self.seen.add(p.id)
             out.append({"passage_id": p.id, "section": p.section or "-", "page": p.page,
                         "text": p.text[:700] + (" ..." if len(p.text) > 700 else "")})
@@ -93,6 +123,7 @@ class ContractDocument:
             return {"error": f"No passage {passage_id}"}
         idx = self.passages.index(p)
         self.seen.add(p.id)
+        self.read_ids.add(p.id)
         nxt = self.passages[idx + 1] if idx + 1 < len(self.passages) else None
         return {"passage_id": p.id, "section": p.section or "-", "page": p.page, "text": p.text,
                 "next_passage_id": nxt.id if nxt else None}
@@ -103,8 +134,13 @@ class ContractDocument:
         if len(q) < 15:
             return None, 0.0
         best_page, best = None, 0.0
-        for num, text in self._norm_pages.items():
-            s = fuzz.partial_ratio(q, text)
+        nums = sorted(self._norm_pages)
+        for i, num in enumerate(nums):
+            # the page alone, and the page joined with the next one (quotes can cross a page break)
+            windows = [self._norm_pages[num]]
+            if i + 1 < len(nums):
+                windows.append(self._norm_pages[num] + " " + self._norm_pages[nums[i + 1]])
+            s = max(fuzz.partial_ratio(q, w) for w in windows)
             if s > best:
                 best_page, best = num, s
         return best_page, best

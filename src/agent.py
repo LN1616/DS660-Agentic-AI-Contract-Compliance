@@ -61,10 +61,12 @@ TOOLS = types.Tool(function_declarations=[
 def verify(f: ClauseFinding, rule: dict, doc: ContractDocument) -> tuple[bool, str, int | None, float | None]:
     """Plain-code checks. Returns (ok, feedback, page, score)."""
     if f.compliance_status == "MISSING" or (f.compliance_status == "COMPLIANT" and not f.extracted_text.strip()):
-        unread = [p for p in doc.keyword_passages(rule["keywords"]) if p not in doc.seen]
+        # Claiming "no clause" needs evidence: the most relevant passages must have been READ in full.
+        top = doc.ranked_ids(f"{rule['title']} " + " ".join(rule["keywords"]), k=3)
+        unread = [p for p in top if p not in doc.read_ids]
         if unread:
-            return False, (f"Before concluding there is no clause, read these passages that mention "
-                           f"{rule['keywords'][:3]}: {unread[:6]}"), None, None
+            return False, (f"Before concluding there is no clause, use read_passage on {unread} "
+                           f"and check them against the rule."), None, None
         return True, "", None, None
     if not f.extracted_text.strip():
         return False, "extracted_text is empty. Copy the exact sentence from the contract.", None, None

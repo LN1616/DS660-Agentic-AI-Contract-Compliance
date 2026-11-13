@@ -8,12 +8,12 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 
-MODEL = os.getenv("MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("MODEL", "gemini-3.8-flash")
 VISION_MODEL = os.getenv("VISION_MODEL", MODEL)
 PRICE_IN_PER_M = float(os.getenv("PRICE_IN_PER_M", "0.30"))
 PRICE_OUT_PER_M = float(os.getenv("PRICE_OUT_PER_M", "2.50"))
 
-MAX_STEPS = int(os.getenv("MAX_STEPS", "6"))      # LLM calls allowed per policy rule
+MAX_STEPS = int(os.getenv("MAX_STEPS", "10"))      # LLM calls allowed per policy rule
 MAX_REJECTIONS = int(os.getenv("MAX_REJECTIONS", "2"))  # verifier send-backs per rule
 
 CUAD_DIR = Path(os.getenv("CUAD_DIR", ROOT.parent / "CUAD_v1" / "CUAD_v1"))

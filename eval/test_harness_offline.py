@@ -43,7 +43,7 @@ def main():
     rule = config.load_playbook()[0]
     real_quote = gold_spans(FNAME, rule["cuad_category"])[0]
     hit = doc.search("limitation of liability")[0]["passage_id"]
-    doc.seen.clear()
+    doc.reset()
 
     fake = FakeModels([
         ("search_contract", {"query": "limitation of liability"}),
