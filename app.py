@@ -3,7 +3,9 @@
 Full loop:  company policy (sample / upload PDF) -> editable rules -> contract -> agent -> report + legal review
 Run:  streamlit run app.py
 """
+import json
 import re
+import shutil
 import tempfile
 import time
 from pathlib import Path
@@ -239,7 +241,21 @@ TEXT.update({
     "p_split": ("สถานะ", "Status split"), "p_high": ("เสี่ยงสูง", "High"), "p_miss": ("ขาด", "Missing"),
     "p_ver": ("ผ่านผู้ตรวจซ้ำ", "Verified"),
     "status_names": ("ผ่าน|เบี่ยงเล็กน้อย|ขัดนโยบาย|ไม่มีข้อนี้", "Compliant|Deviated|Violated|Missing"),
+    "pb_title": ("Agent กำลังตรวจสัญญา", "Agent is reviewing the contract"),
+    "pb_read": ("อ่านเอกสาร: {n} หน้า · {kinds} · แบ่งได้ {p} ข้อ", "Read {n} pages · {kinds} · {p} passages"),
+    "pb_reading": ("กำลังอ่านเอกสารและเลือกวิธีดึงข้อความ ...", "Reading the document and choosing how to extract each page ..."),
+    "pb_wait": ("รอคิว", "waiting"), "pb_run": ("กำลังตรวจ", "checking"),
+    "pb_calls": ("{n} AI calls · ส่งกลับ {r}", "{n} AI calls · sent back {r}"),
+    "pb_summary": ("กำลังเขียนสรุปสำหรับผู้บริหาร ...", "Writing the executive summary ..."),
+    "pb_single": ("Baseline: ส่งสัญญาทั้งฉบับให้ AI ครั้งเดียว ...", "Baseline: sending the whole contract in one AI call ..."),
+    "skel_hint": ("ผลจะแสดงที่นี่หลังกด **วิเคราะห์สัญญา** · ระหว่างทำงานจะเห็นความคืบหน้าของ agent ทีละข้อ",
+                  "Results appear here after **Analyse contract** · while it runs you see the agent's progress rule by rule"),
+    "p_open": ("เปิดผลการวิเคราะห์ที่เลือก", "Open the selected review"),
+    "p_pick": ("เลือกผลการวิเคราะห์เก่า", "Choose a previous review"),
+    "v_prev": ("หน้าก่อน", "Previous page"), "v_next": ("หน้าถัดไป", "Next page"),
+    "v_of": ("หน้า {p} / {n}", "Page {p} / {n}"),
 })
+VIEWS = {"policy": "tab_policy", "dash": "tab_dash", "view": "tab_view", "trace": "tab_trace", "port": "tab_port"}
 
 
 def status_labels() -> dict:
@@ -258,36 +274,50 @@ def page_png(pdf: str, page: int, highlights: tuple) -> bytes:
     return ui.render_page(pdf, page, highlights)
 
 
-def load_demo():
-    """?demo=1 -> show the latest saved agent review of a sample contract, without calling the AI."""
-    import json
+def saved_reports() -> list[Path]:
+    files = [f for f in config.OUTPUT_DIR.glob("*.json") if not f.name.endswith(".meta.json")]
+    return sorted(files, key=lambda f: f.stat().st_mtime, reverse=True)
+
+
+def load_saved(fp: Path) -> dict | None:
+    """Rebuild a result (report, trace, PDF) from files written by an earlier run."""
     import pymupdf
-    for fp in sorted(config.OUTPUT_DIR.glob("*_agent.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+    try:
         rep = ContractAuditReport.model_validate_json(fp.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    meta_fp = fp.with_name(fp.stem + ".meta.json")
+    meta = json.loads(meta_fp.read_text(encoding="utf-8")) if meta_fp.exists() else {}
+    pdf = meta.get("pdf")
+    if not pdf or not Path(pdf).exists():
         try:
-            pdf = pdf_path(rep.contract_title + ".pdf")
+            pdf = str(pdf_path(rep.contract_title + ".pdf"))
         except KeyError:
-            continue
-        doc = ContractDocument(pdf.stem, extract_pages(pdf, use_vision=False))
-        for r in rep.findings:  # page attribution with the current verifier
+            pdf = None
+    if pdf and not meta:  # runs saved before page attribution was fixed
+        doc = ContractDocument(Path(pdf).stem, extract_pages(Path(pdf), use_vision=False))
+        for r in rep.findings:
             if r.finding.extracted_text.strip():
                 r.verified_page, r.quote_score = doc.find_quote(r.finding.extracted_text)
-        traces = sorted(config.TRACE_DIR.glob(f"*{fp.stem}*.json"))
-        data = json.loads(traces[-1].read_text(encoding="utf-8")) if traces else {}
-        records = data.get("records", [])
-        totals = data.get("totals", {"llm_calls": 0, "tokens_in": 0, "tokens_out": 0, "cost_usd": 0})
-        xlsx = fp.with_suffix(".xlsx")
-        return {"report": rep, "totals": totals, "records": records,
-                "xlsx": xlsx.read_bytes() if xlsx.exists() else b"", "xlsx_name": xlsx.name, "mode": "m_agent",
-                "seconds": sum(x.get("sec", 0) for x in records if x["type"] == "llm"), "lang": "th",
-                "pdf": str(pdf), "n_pages": len(pymupdf.open(pdf))}
-    return None
+    trace_fp = Path(meta["trace"]) if meta.get("trace") else next(iter(sorted(config.TRACE_DIR.glob(f"*{fp.stem}*.json"))[-1:]), None)
+    data = json.loads(trace_fp.read_text(encoding="utf-8")) if trace_fp and trace_fp.exists() else {}
+    records = data.get("records", [])
+    xlsx = fp.with_suffix(".xlsx")
+    return {"report": rep, "records": records,
+            "totals": data.get("totals", {"llm_calls": 0, "tokens_in": 0, "tokens_out": 0, "cost_usd": 0}),
+            "xlsx": xlsx.read_bytes() if xlsx.exists() else b"", "xlsx_name": xlsx.name,
+            "mode": meta.get("mode", "m_baseline" if fp.stem.endswith("baseline") else "m_agent"),
+            "seconds": meta.get("seconds", sum(x.get("sec", 0) for x in records if x["type"] == "llm")),
+            "lang": meta.get("lang", "th"), "pdf": pdf,
+            "n_pages": meta.get("n_pages") or (len(pymupdf.open(pdf)) if pdf else 1)}
 
 
 if "demo" in st.query_params and "result" not in st.session_state:
-    demo = load_demo()
-    if demo:
-        st.session_state.result = demo
+    for _fp in saved_reports():
+        _demo = load_saved(_fp)
+        if _demo and _demo["pdf"]:
+            st.session_state.result = _demo
+            break
 
 res = None  # set after a run or from session
 
@@ -303,11 +333,20 @@ _steps = [(t("st_policy"), "done" if n_rules else "now"),
 _title = _res["report"].contract_title.split("-EX-")[0][:60] if _res else "Contract Compliance Agent"
 st.html(ui.header(_title, t("app_sub"), _steps))
 
-tab_policy, tab_dash, tab_view, tab_trace, tab_port = st.tabs(
-    [t("tab_policy"), t("tab_dash"), t("tab_view"), t("tab_trace"), t("tab_port")])
+_lang = st.session_state.lang
+_nav_key = f"view_{_lang}"
+if run or st.session_state.get("goto"):
+    st.session_state[_nav_key] = st.session_state.pop("goto", None) or "dash"
+if _nav_key not in st.session_state:
+    st.session_state[_nav_key] = st.session_state.get("choice_view", "policy")
+_fmt = label_fn(_lang)
+view = st.segmented_control("nav", list(VIEWS), key=_nav_key, label_visibility="collapsed",
+                            format_func=lambda v: _fmt(VIEWS[v]))
+view = view or st.session_state.get("choice_view", "policy")
+st.session_state.choice_view = view
 
 # ================= tab 1: policy =================
-with tab_policy:
+if view == "policy":
     st.subheader(t("rules_title"))
     st.caption(t("rules_help"))
     if len(st.session_state.rules_df) == 0:
@@ -326,7 +365,7 @@ with tab_policy:
     st.session_state.rules_df = edited
     st.download_button(t("dl_yaml"), rules_to_yaml(df_to_rules(edited)), "company_policy_rules.yaml")
 
-# ================= run =================
+# ================= run: live progress board =================
 if run:
     if upload is not None:
         pdf = Path(tempfile.mkdtemp()) / upload.name
@@ -335,42 +374,73 @@ if run:
         pdf = pdf_path(sample)
     active = df_to_rules(st.session_state.rules_df)
     lang = st.session_state.lang
-    trace = Trace(pdf.stem[:30] + ("_agent" if mode == "m_agent" else "_baseline"))
+    trace = Trace(f"{re.sub(r'[^A-Za-z0-9]+', '_', pdf.stem)[:28]}_{time.strftime('%m%d-%H%M%S')}"
+                  f"_{'agent' if mode == 'm_agent' else 'baseline'}")
     t0 = time.time()
-    with tab_dash:
-        try:
-            with st.status(t("working"), expanded=True) as status:
-                st.write(t("reading"))
-                pages = extract_pages(pdf, use_vision=vision, trace=trace)
-                doc = ContractDocument(pdf.stem, pages)
-                kinds = {k: sum(p.kind == k for p in pages) for k in ("text", "table", "scan", "pymupdf", "vision")}
-                st.write(t("pages", n=len(pages), kinds=", ".join(f"{k} {v}" for k, v in kinds.items() if v),
-                           p=len(doc.passages)))
-                if mode == "m_agent":
-                    report = review(doc, active, trace, lang=lang,
-                                    on_step=lambda r: st.write(t("checking", id=r["id"], title=rule_title(r))))
-                else:
-                    st.write(t("single"))
-                    report = review_single_call(pdf, doc, active, trace, lang=lang)
-                status.update(label=t("done", s=f"{time.time() - t0:.0f}"), state="complete", expanded=False)
-        except Exception as e:
-            st.error(f"{type(e).__name__}: {str(e)[:300]}")
-            st.stop()
-    _, xlsx = save(report, config.OUTPUT_DIR, trace.run_name)
-    trace.save()
-    for k in [k for k in st.session_state if str(k).startswith("hitl_")]:
+    board = st.empty()
+    prog = {"read": t("pb_reading"), "foot": "",
+            "rows": {r["id"]: {"title": rule_title(r), "state": "wait", "tools": [], "chip": "", "note": t("pb_wait")}
+                     for r in active}}
+
+    def draw():
+        board.html(ui.progress_board(t("pb_title"), prog["read"], list(prog["rows"].items()), prog["foot"],
+                                     time.time() - t0))
+
+    def on_step(rule):
+        prog["rows"][rule["id"]].update(state="run", note=t("pb_run"))
+        draw()
+
+    def on_tool(rule, call):
+        prog["rows"][rule["id"]]["tools"].append(call)
+        draw()
+
+    def on_done(rule, r):
+        row = prog["rows"][rule["id"]]
+        row.update(state="done", chip=ui.chip(r.finding.compliance_status) + " " + ui.risk_chip(r.finding.risk_level),
+                   note=t("pb_calls", n=r.steps, r=r.rejections))
+        if rule is active[-1]:
+            prog["foot"] = t("pb_summary")
+        draw()
+
+    try:
+        draw()
+        pages = extract_pages(pdf, use_vision=vision, trace=trace)
+        doc = ContractDocument(pdf.stem, pages)
+        kinds = {k: sum(p.kind == k for p in pages) for k in ("text", "table", "scan", "pymupdf", "vision")}
+        prog["read"] = t("pb_read", n=len(pages), kinds=", ".join(f"{k} {v}" for k, v in kinds.items() if v),
+                         p=len(doc.passages))
+        draw()
+        if mode == "m_agent":
+            report = review(doc, active, trace, lang=lang, on_step=on_step, on_tool=on_tool, on_done=on_done)
+        else:
+            prog["foot"] = t("pb_single")
+            draw()
+            report = review_single_call(pdf, doc, active, trace, lang=lang)
+    except Exception as e:
+        st.error(f"{type(e).__name__}: {str(e)[:300]}")
+        st.stop()
+    seconds = time.time() - t0
+    js, xlsx = save(report, config.OUTPUT_DIR, trace.run_name)
+    trace_fp = trace.save()
+    (config.OUTPUT_DIR / "pdfs").mkdir(exist_ok=True)
+    kept_pdf = config.OUTPUT_DIR / "pdfs" / f"{trace.run_name}.pdf"
+    shutil.copy(pdf, kept_pdf)
+    (config.OUTPUT_DIR / f"{trace.run_name}.meta.json").write_text(json.dumps(
+        {"mode": mode, "lang": lang, "seconds": seconds, "n_pages": len(pages), "pdf": str(kept_pdf),
+         "trace": str(trace_fp), "model": config.MODEL}, ensure_ascii=False), encoding="utf-8")
+    for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_"))]:
         del st.session_state[k]
-    st.session_state.result = {"report": report, "totals": trace.totals, "records": trace.records,
-                               "xlsx": xlsx.read_bytes(), "xlsx_name": xlsx.name, "mode": mode,
-                               "seconds": time.time() - t0, "lang": lang, "pdf": str(pdf), "n_pages": len(pages)}
+    st.session_state.result = load_saved(js)
     st.rerun()
 
 res = st.session_state.get("result")
 
 # ================= tab 2: dashboard =================
-with tab_dash:
+if view == "dash":
     if not res:
-        st.info(t("start_hint"))
+        st.html(ui.skeleton([t("k_score"), t("k_high"), t("k_miss"), t("k_ver"), t("k_cost")],
+                            [t("split_title"), t("map_title"), t("effort_title")]))
+        st.info(t("skel_hint"))
     else:
         report, totals = res["report"], res["totals"]
         c = report.counts
@@ -440,7 +510,7 @@ with tab_dash:
                                  horizontal=True, key=f"hitl_{f.policy_id}")
 
 # ================= tab 3: contract viewer =================
-with tab_view:
+if view == "view":
     if not res or not res.get("pdf") or not Path(res["pdf"]).exists():
         st.info(t("v_none"))
     else:
@@ -455,7 +525,15 @@ with tab_view:
                                                       if r.finding.policy_id == i))
             chosen = next(r for r in findings if r.finding.policy_id == sel)
             default_page = finding_page(chosen) or 1
-            page = st.number_input(t("v_page"), 1, n_pages, value=min(default_page, n_pages), key=f"viewer_page_{sel}")
+            pkey = f"vp_{sel}"
+            st.session_state.setdefault(pkey, min(default_page, n_pages))
+            b1, b2, b3 = st.columns([1, 2.2, 1], vertical_alignment="center")
+            b1.button("‹", key="pg_prev", help=t("v_prev"), disabled=st.session_state[pkey] <= 1, width="stretch",
+                      on_click=lambda: st.session_state.__setitem__(pkey, st.session_state[pkey] - 1))
+            b3.button("›", key="pg_next", help=t("v_next"), disabled=st.session_state[pkey] >= n_pages, width="stretch",
+                      on_click=lambda: st.session_state.__setitem__(pkey, st.session_state[pkey] + 1))
+            page = st.session_state[pkey]
+            b2.html(f"<div style='text-align:center;font-weight:600'>{t('v_of', p=page, n=n_pages)}</div>")
             show_all = st.toggle(t("v_all"), value=True)
         with mid:
             targets = [r for r in findings if finding_page(r) == page and (show_all or r is chosen)]
@@ -475,7 +553,7 @@ with tab_view:
                 st.code(f.suggested_redline, language=None, wrap_lines=True)
 
 # ================= tab 4: agent trace =================
-with tab_trace:
+if view == "trace":
     if not res:
         st.info(t("trace_hint"))
     else:
@@ -501,17 +579,20 @@ with tab_trace:
             st.dataframe(pd.DataFrame(llm), hide_index=True, width="stretch")
 
 # ================= tab 5: portfolio =================
-with tab_port:
+if view == "port":
     st.subheader(t("p_title"))
     st.caption(t("p_note"))
-    files = sorted(config.OUTPUT_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-    rows = []
+    files = saved_reports()
+    rows, openable = [], []
     for fp in files:
         try:
             rep = ContractAuditReport.model_validate_json(fp.read_text(encoding="utf-8"))
         except Exception:
             continue
         cnt = {s: sum(r.finding.compliance_status == s for r in rep.findings) for s in STATUS_COLOR}
+        openable.append((fp, f"{rep.contract_title.split('-EX-')[0][:40]} · "
+                             f"{time.strftime('%d %b %H:%M', time.localtime(fp.stat().st_mtime))} · "
+                             f"{'Baseline' if fp.stem.endswith('baseline') else 'Agent'}"))
         rows.append(
             f"<tr><td><b>{ui.esc(rep.contract_title.split('-EX-')[0][:40])}</b></td>"
             f"<td class='cc-muted'>{time.strftime('%d %b %H:%M', time.localtime(fp.stat().st_mtime))}</td>"
@@ -527,3 +608,13 @@ with tab_port:
                 f"<table class='cc-table'><tr><th>{t('p_contract')}</th><th>{t('p_when')}</th><th>{t('p_mode')}</th>"
                 f"<th>{t('p_split')}</th><th>{t('p_high')}</th><th>{t('p_miss')}</th><th>{t('p_ver')}</th></tr>"
                 f"{''.join(rows)}</table></div>")
+        o1, o2 = st.columns([3, 1], vertical_alignment="bottom")
+        choice = o1.selectbox(t("p_pick"), range(len(openable)), format_func=lambda i: openable[i][1], key="port_pick")
+        if o2.button(t("p_open"), type="primary", width="stretch"):
+            loaded = load_saved(openable[choice][0])
+            if loaded:
+                for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_"))]:
+                    del st.session_state[k]
+                st.session_state.result = loaded
+                st.session_state.goto = "dash"
+                st.rerun()

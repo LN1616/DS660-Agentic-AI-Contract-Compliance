@@ -8,12 +8,19 @@ from . import config
 
 
 class Trace:
+    _last_call = 0.0  # shared across runs in one process, for pacing
+
     def __init__(self, run_name: str):
         self.run_name = run_name
         self.records: list[dict] = []
 
     def call(self, fn, label: str, retries: int = 4):
-        """Run one LLM call. Retries on overload (503) and rate limit (429) with backoff."""
+        """Run one LLM call. Paces calls (MIN_CALL_GAP seconds apart, free-tier friendly) and
+        retries on overload (503) and rate limit (429) with backoff."""
+        gap = config.MIN_CALL_GAP - (time.time() - Trace._last_call)
+        if gap > 0:
+            time.sleep(gap)
+        Trace._last_call = time.time()
         t0 = time.time()
         for attempt in range(retries + 1):
             try:

@@ -22,8 +22,27 @@ BLUE = "#2a78d6"
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
-html, body, [class*="st-"], .stMarkdown, .stButton button, input, textarea, select {
+html, body, p, li, label, input, textarea, select, button, h1, h2, h3, h4, td, th, .stMarkdown {
   font-family: "IBM Plex Sans Thai", "Leelawadee UI", system-ui, sans-serif; }
+/* keep Streamlit's icon font (otherwise icon names like "arrow_right" show as text) */
+[data-testid="stIconMaterial"], .material-symbols-rounded, [data-testid="stExpanderToggleIcon"] {
+  font-family: "Material Symbols Rounded" !important; }
+[data-testid="stSegmentedControl"] button, div[data-testid="stButtonGroup"] button { font-weight: 500; }
+.cc-prog { background: #fff; border: 1px solid #e4e7ef; border-radius: 14px; padding: 16px 18px; }
+.cc-prog h4 { margin: 0 0 2px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+.cc-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 10px 0; border-top: 1px solid #eef0f5; }
+.cc-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #cfd4e0; display: grid; place-items: center;
+  font-size: 11px; color: #fff; }
+.cc-dot.run { border-color: #2a78d6; border-top-color: transparent; animation: ccspin .8s linear infinite; }
+.cc-dot.done { background: #0ca30c; border-color: #0ca30c; }
+@keyframes ccspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cc-dot.run { animation: none; } }
+.cc-tools { font: 12px "IBM Plex Mono", monospace; color: #52596e; margin-top: 3px; overflow-wrap: anywhere; }
+.cc-tools span { background: #f1f3f8; border-radius: 4px; padding: 1px 6px; margin-right: 4px; display: inline-block; margin-top: 2px; }
+.cc-skel { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.cc-skel2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.cc-ph { height: 12px; background: #eef0f5; border-radius: 6px; margin-top: 12px; }
 .block-container { padding-top: 3.4rem; max-width: 1440px; }
 h1, h2, h3 { letter-spacing: -0.01em; }
 [data-testid="stSidebar"] { border-right: 1px solid #e4e7ef; }
@@ -167,3 +186,30 @@ def render_page(pdf_path: str, page_no: int, highlights: tuple, zoom: float = 1.
         for r in quote_rects(page, quote):
             page.draw_rect(r, color=None, fill=_hex_rgb(STATUS[status][0]), fill_opacity=0.28, overlay=True)
     return page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom)).tobytes("png")
+
+
+def progress_board(title: str, read_line: str, rows: list, foot: str, elapsed: float) -> str:
+    """Live agent progress: one row per rule (wait / run / done), its latest tool calls and its result."""
+    done = sum(r["state"] == "done" for _, r in rows)
+    body = []
+    for rid, r in rows:
+        dot = {"wait": "", "run": "", "done": "✓"}[r["state"]]
+        tools = "".join(f"<span>{esc(c[:60])}</span>" for c in r["tools"][-4:])
+        body.append(f'<div class="cc-row"><div class="cc-dot {r["state"]}">{dot}</div>'
+                    f'<div><b>{esc(rid)}</b> · {esc(r["title"])}<div class="cc-tools">{tools}</div></div>'
+                    f'<div style="text-align:right">{r["chip"]}<div class="cc-muted">{esc(r["note"])}</div></div></div>')
+    pct = 100 * done / max(len(rows), 1)
+    return (f'<div class="cc-prog"><h4><span class="cc-dot run"></span>{esc(title)}</h4>'
+            f'<div class="cc-muted">{esc(read_line)} · {elapsed:.0f}s · {done}/{len(rows)}</div>'
+            f'<div style="height:6px;background:#eef0f5;border-radius:3px;margin:10px 0 4px">'
+            f'<div style="height:6px;width:{pct:.0f}%;background:#2a78d6;border-radius:3px"></div></div>'
+            f'{"".join(body)}<div class="cc-muted" style="margin-top:8px">{esc(foot)}</div></div>')
+
+
+def skeleton(kpis: list[str], cards: list[str]) -> str:
+    """Empty dashboard layout shown before the first run."""
+    k = "".join(f'<div class="cc-card"><div class="cc-label">{esc(x)}</div>'
+                f'<div style="font-size:28px;color:#c3c8d4;margin-top:6px">—</div></div>' for x in kpis)
+    c = "".join(f'<div class="cc-card"><div class="cc-label">{esc(x)}</div><div class="cc-ph" style="width:90%"></div>'
+                f'<div class="cc-ph" style="width:70%"></div><div class="cc-ph" style="width:80%"></div></div>' for x in cards)
+    return f'<div class="cc-skel">{k}</div><div class="cc-skel2">{c}</div>'

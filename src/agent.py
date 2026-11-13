@@ -78,7 +78,7 @@ def verify(f: ClauseFinding, rule: dict, doc: ContractDocument) -> tuple[bool, s
     return True, "", page, score
 
 
-def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th") -> ReviewedFinding:
+def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th", on_tool=None) -> ReviewedFinding:
     prompt = (f"Policy rule {rule['id']} - {rule['title']}:\n{rule['text'].strip()}\n\n"
               f"If the contract has no clause on this topic, the status is {rule['if_absent']}.\n"
               f"Contract: {doc.title}")
@@ -108,6 +108,8 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
         for fc in calls:
             args = dict(fc.args or {})
             tool_log.append(f"{fc.name}({args.get('query') or args.get('passage_id') or ''})")
+            if on_tool:
+                on_tool(rule, tool_log[-1])
             if fc.name == "search_contract":
                 result = doc.search(args.get("query", ""))
             elif fc.name == "read_passage":
@@ -147,11 +149,15 @@ def summarize(doc: ContractDocument, findings: list[ReviewedFinding], trace: Tra
     return (resp.text or "").strip()
 
 
-def review(doc: ContractDocument, rules: list[dict], trace: Trace, on_step=None, lang: str = "th") -> ContractAuditReport:
+def review(doc: ContractDocument, rules: list[dict], trace: Trace, on_step=None, lang: str = "th",
+           on_tool=None, on_done=None) -> ContractAuditReport:
+    """on_step(rule) before a rule, on_tool(rule, call) on every tool call, on_done(rule, finding) after."""
     findings = []
     for rule in rules:
         if on_step:
             on_step(rule)
-        findings.append(check_rule(rule, doc, trace, lang))
+        findings.append(check_rule(rule, doc, trace, lang, on_tool))
+        if on_done:
+            on_done(rule, findings[-1])
     return ContractAuditReport(contract_title=doc.title, executive_summary=summarize(doc, findings, trace, lang),
                                findings=findings)

@@ -15,6 +15,7 @@ PRICE_OUT_PER_M = float(os.getenv("PRICE_OUT_PER_M", "2.50"))
 
 MAX_STEPS = int(os.getenv("MAX_STEPS", "10"))      # LLM calls allowed per policy rule
 MAX_REJECTIONS = int(os.getenv("MAX_REJECTIONS", "2"))  # verifier send-backs per rule
+MIN_CALL_GAP = float(os.getenv("MIN_CALL_GAP", "4.5"))  # seconds between AI calls (free tier ~15 requests/min)
 
 CUAD_DIR = Path(os.getenv("CUAD_DIR", ROOT.parent / "CUAD_v1" / "CUAD_v1"))
 PLAYBOOK_PATH = ROOT / "data" / "policy_playbook.yaml"
