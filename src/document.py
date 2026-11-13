@@ -133,17 +133,19 @@ class ContractDocument:
         q = normalize(quote)
         if len(q) < 15:
             return None, 0.0
-        best_page, best = None, 0.0
         nums = sorted(self._norm_pages)
-        for i, num in enumerate(nums):
-            # the page alone, and the page joined with the next one (quotes can cross a page break)
-            windows = [self._norm_pages[num]]
-            if i + 1 < len(nums):
-                windows.append(self._norm_pages[num] + " " + self._norm_pages[nums[i + 1]])
-            s = max(fuzz.partial_ratio(q, w) for w in windows)
-            if s > best:
-                best_page, best = num, s
-        return best_page, best
+        # 1) the quote on a single page (most quotes)
+        single = {n: fuzz.partial_ratio(q, self._norm_pages[n]) for n in nums}
+        best_page = max(single, key=single.get)
+        if single[best_page] >= 88:
+            return best_page, single[best_page]
+        # 2) a quote that crosses a page break: page joined with the next one
+        for a, b in zip(nums, nums[1:]):
+            s = fuzz.partial_ratio(q, self._norm_pages[a] + " " + self._norm_pages[b])
+            if s > single[best_page]:
+                single[best_page] = s if best_page == a else single[best_page]
+                best_page, single[a] = a, s
+        return best_page, single[best_page]
 
     def keyword_passages(self, keywords: list[str]) -> list[str]:
         kws = [k.lower() for k in keywords]
