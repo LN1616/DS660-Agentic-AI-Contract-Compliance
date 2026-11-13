@@ -17,8 +17,26 @@ MIN_TEXT_CHARS = 50
 @dataclass
 class Page:
     number: int
-    kind: str   # "text" | "table" | "scan"
+    kind: str   # "text" | "table" | "scan" | "pymupdf" (Thai fix) | "vision" (garbled text)
     text: str
+
+
+import re
+
+THAI = "฀-๿"
+_DETACHED_MARK = re.compile(r"\s[ัิ-ฺ็-๎]")      # vowel/tone mark split from its letter
+_ODD_IN_THAI = re.compile(rf"[{THAI}][Ā-ɏ-]|[Ā-ɏ-][{THAI}]")
+
+
+def garbled(text: str) -> bool:
+    """True when extracted text is broken (common with Thai fonts in PDFs)."""
+    bad = text.count("(cid:") + len(_DETACHED_MARK.findall(text)) + len(_ODD_IN_THAI.findall(text))
+    return bad >= 5
+
+
+def pymupdf_text(pdf_path: Path, page_no: int) -> str:
+    import pymupdf
+    return pymupdf.open(pdf_path)[page_no - 1].get_text()
 
 
 def inspect_layout(page) -> str:
@@ -73,11 +91,16 @@ def extract_pages(pdf_path, use_vision: bool = True, trace=None) -> list[Page]:
                 text = vision_extract(pdf_path, i, trace) if use_vision else ""
             else:
                 text = p.extract_text() or ""
-                if kind == "table":
+                if garbled(text):                       # router: pdfplumber -> PyMuPDF -> vision
+                    text, kind = pymupdf_text(pdf_path, i), "pymupdf"
+                    if garbled(text):
+                        kind = "vision"
+                        text = vision_extract(pdf_path, i, trace) if use_vision else text
+                elif kind == "table":
                     md = [table_to_markdown(t.extract()) for t in p.find_tables()]
                     text += "\n\n" + "\n\n".join(m for m in md if m)
             pages.append(Page(i, kind, text))
     if trace:
-        kinds = {k: sum(p.kind == k for p in pages) for k in ("text", "table", "scan")}
+        kinds = {k: sum(p.kind == k for p in pages) for k in ("text", "table", "scan", "pymupdf", "vision")}
         trace.event("ingest", file=pdf_path.name, pages=len(pages), **kinds)
     return pages

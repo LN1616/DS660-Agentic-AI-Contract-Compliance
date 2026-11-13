@@ -1,0 +1,115 @@
+# Rules extracted by src/policy.py from data/sample_company_policy_th.pdf (reviewed, unedited)
+rules:
+- id: P-01
+  title: Payment terms
+  title_th: เงื่อนไขการชำระเงิน
+  text: The payment term must be at least 30 days from the date the company receives a valid invoice.
+    VIOLATED if payment terms are less than 30 days.
+  if_absent: MISSING
+  keywords:
+  - payment
+  - invoice
+  - days
+  - ชำระเงิน
+  - ใบแจ้งหนี้
+- id: P-02
+  title: Limitation of liability cap
+  title_th: เพดานความรับผิด
+  text: If the contract limits the seller's liability, the cap must not be lower than the fees paid in
+    the 12 months preceding the claim. VIOLATED if the liability cap is lower than 12 months of fees.
+  if_absent: COMPLIANT
+  keywords:
+  - liability
+  - limitation
+  - cap
+  - ความรับผิด
+  - จำกัดความรับผิด
+- id: P-03
+  title: Exclusion from liability cap for willful misconduct or data breach
+  title_th: ข้อยกเว้นเพดานความรับผิดกรณีจงใจหรือละเมิดข้อมูล
+  text: The contract must not limit liability in cases of data breach or intentional wrongdoing. VIOLATED
+    if liability is limited for willful misconduct or data breaches.
+  if_absent: COMPLIANT
+  keywords:
+  - willful misconduct
+  - data breach
+  - ละเมิด
+  - จงใจ
+  - ข้อมูลส่วนบุคคล
+- id: P-04
+  title: Termination for convenience
+  title_th: การบอกเลิกสัญญาโดยไม่ต้องมีเหตุ
+  text: The company must have the right to terminate the contract for convenience by giving written notice
+    of no more than 30 days. VIOLATED if the company lacks this right or notice period exceeds 30 days.
+  if_absent: MISSING
+  keywords:
+  - termination
+  - convenience
+  - written notice
+  - บอกเลิกสัญญา
+  - บอกกล่าวล่วงหน้า
+- id: P-05
+  title: Prohibition of automatic renewal
+  title_th: ห้ามต่ออายุสัญญาโดยอัตโนมัติ
+  text: Automatic contract renewal is prohibited. Any renewal must be in writing and signed by both parties.
+    VIOLATED if the contract contains an automatic renewal clause.
+  if_absent: COMPLIANT
+  keywords:
+  - automatic renewal
+  - extend
+  - in writing
+  - ต่ออายุสัญญา
+  - อัตโนมัติ
+- id: P-06
+  title: Audit rights
+  title_th: สิทธิตรวจสอบเอกสารและบัญชี
+  text: The company must have the right to inspect contract-related documents and accounts at least once
+    a year with advance notice of no more than 30 days. VIOLATED if audit rights are denied or restricted
+    beyond policy terms.
+  if_absent: MISSING
+  keywords:
+  - audit
+  - inspection
+  - documents
+  - accounts
+  - ตรวจสอบ
+  - บัญชี
+- id: P-07
+  title: Third-party liability insurance
+  title_th: ประกันภัยความรับผิดต่อบุคคลภายนอก
+  text: The seller must maintain third-party liability insurance with a coverage of not less than 5,000,000
+    Baht throughout the contract term. VIOLATED if insurance coverage is below 5,000,000 Baht or absent
+    when required.
+  if_absent: MISSING
+  keywords:
+  - insurance
+  - third-party liability
+  - coverage
+  - ประกันภัย
+  - บุคคลภายนอก
+- id: P-08
+  title: Personal data protection and breach notification
+  title_th: การคุ้มครองข้อมูลส่วนบุคคลและการแจ้งเหตุละเมิด
+  text: Sellers accessing personal data must sign a data processing agreement under PDPA and notify breaches
+    within 72 hours. VIOLATED if data processing terms or 72-hour notification are missing when handling
+    personal data.
+  if_absent: COMPLIANT
+  keywords:
+  - personal data
+  - PDPA
+  - data processing
+  - breach
+  - ข้อมูลส่วนบุคคล
+  - ละเมิด
+- id: P-09
+  title: Governing law and jurisdiction
+  title_th: กฎหมายที่ใช้บังคับและเขตอำนาจศาล
+  text: The contract must be governed by Thai law and subject to the jurisdiction of Thai courts. VIOLATED
+    if a foreign law or foreign jurisdiction is specified.
+  if_absent: MISSING
+  keywords:
+  - governing law
+  - jurisdiction
+  - Thai court
+  - กฎหมายไทย
+  - ศาลไทย
