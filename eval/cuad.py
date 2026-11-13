@@ -15,7 +15,13 @@ def master() -> pd.DataFrame:
 
 @lru_cache(maxsize=1)
 def _pdf_index() -> dict:
-    return {p.stem.lower(): p for p in (config.CUAD_DIR / "full_contract_pdf").rglob("*") if p.suffix.lower() == ".pdf"}
+    """Full CUAD folder if present, plus the 6 bundled samples in data/samples (used on Streamlit Cloud)."""
+    dirs = [config.ROOT / "data" / "samples", config.CUAD_DIR / "full_contract_pdf"]
+    return {p.stem.lower(): p for d in dirs if d.exists() for p in d.rglob("*") if p.suffix.lower() == ".pdf"}
+
+
+def available(filenames: list[str]) -> list[str]:
+    return [f for f in filenames if f.rsplit(".", 1)[0].lower() in _pdf_index()]
 
 
 def pdf_path(filename: str) -> Path:

@@ -20,7 +20,7 @@ from src.policy import extract_rules, rules_to_yaml
 from src.report import save, to_frame
 from src.trace import Trace
 from eval.offline_check import DEV_SET
-from eval.cuad import pdf_path
+from eval.cuad import available, pdf_path
 
 st.set_page_config(page_title="Contract Compliance Agent", page_icon="§", layout="wide")
 
@@ -89,16 +89,17 @@ with st.sidebar:
     st.caption(f"ใช้ {n_rules} กฎ · แก้ไขได้ที่แท็บ **นโยบายบริษัท**")
 
     st.subheader("2 · สัญญา")
-    has_cuad = (config.CUAD_DIR / "full_contract_pdf").exists()
+    samples = available(DEV_SET)
+    has_cuad = bool(samples)
     source = st.radio("แหล่งสัญญา", ["ตัวอย่างจาก CUAD", "อัปโหลด PDF"] if has_cuad else ["อัปโหลด PDF"],
                       horizontal=True, label_visibility="collapsed")
     if not has_cuad:
-        st.caption("ไม่พบโฟลเดอร์ CUAD (ตั้ง CUAD_DIR ใน .env) จึงใช้ได้เฉพาะอัปโหลด PDF")
+        st.caption("ไม่พบสัญญาตัวอย่าง จึงใช้ได้เฉพาะอัปโหลด PDF")
     if source == "อัปโหลด PDF":
         upload, sample = st.file_uploader("สัญญา (PDF)", type="pdf", key="contract_pdf"), None
     else:
         upload = None
-        sample = st.selectbox("เลือกสัญญาตัวอย่าง", DEV_SET,
+        sample = st.selectbox("เลือกสัญญาตัวอย่าง", samples,
                               format_func=lambda f: f.split("-EX-")[0][:26] + " · " + f.rsplit("-", 1)[-1][:28])
 
     st.subheader("3 · วิธีตรวจ")
