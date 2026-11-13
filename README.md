@@ -49,6 +49,17 @@ python run_review.py --cuad FUSION --baseline   # single-call baseline, same con
 python -m eval.run_eval 6                       # baseline vs agent on 6 contracts → outputs/eval_summary.csv
 ```
 
+## Interface
+
+```bash
+pip install streamlit
+streamlit run app.py          # opens http://localhost:8501
+```
+
+Pick a CUAD sample or upload a PDF, choose the policy rules, choose Agent or Baseline, then press the analyse button. The page shows the agent's progress, risk counts, an executive summary in Thai, a filterable findings table, the verifier result and quoted text for each rule, legal approval for high-risk items, and an Excel download.
+
+On Windows, if `pip install streamlit` fails with "filename too long", create the virtual environment in a short path (for example `D:\venvs\cca`).
+
 ## Results so far
 
 | Check | Result |
