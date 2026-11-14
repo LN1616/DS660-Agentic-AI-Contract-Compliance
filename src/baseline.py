@@ -13,7 +13,7 @@ from .document import ContractDocument
 from .schemas import ClauseFinding, ContractAuditReport, ReviewedFinding, finding_json_schema
 from .trace import Trace
 
-PROMPT = """You review a supplier contract for the BUYER against the company policy rules below.
+PROMPT = """You review a contract for OUR COMPANY (named below if known, otherwise the party that receives the goods, services or rights) against the company policy rules below.
 Return one finding per rule. extracted_text must be copied word for word from the contract
 (empty string if MISSING). issue_description, action_required and executive_summary in {language}, suggested_redline in English.
 

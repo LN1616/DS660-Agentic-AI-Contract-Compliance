@@ -17,8 +17,8 @@ import yaml
 from src import config
 from src.agent import review
 from src.baseline import review_single_call
-from src.criteria import (GENERAL, GROUPS_TH, context_line, criteria_for, library_to_yaml, load_library,
-                          prefix_for, profile_contract, renumber, save_library, type_label)
+from src.criteria import (GENERAL, GROUPS_TH, context_line, criteria_for, library_to_yaml, load_library, log_change,
+                          prefix_for, profile_contract, read_log, renumber, rule_usage, save_library, today, type_label)
 from src.document import ContractDocument
 from src.ingest import extract_pages
 from src.policy import extract_rules, merge_into_library, rules_to_yaml
@@ -34,7 +34,7 @@ st.markdown(ui.CSS, unsafe_allow_html=True)
 
 # ---------------- text in both languages ----------------
 TEXT = {
-    "tagline": ("ตรวจสัญญาจัดซื้อเทียบนโยบายบริษัท", "Check supplier contracts against company policy"),
+    "tagline": ("ตรวจสัญญาทุกประเภทเทียบนโยบายบริษัท", "Check any contract against your company policy"),
     "lang": ("ภาษา", "Language"),
     "s_policy": ("1 · นโยบายบริษัท", "1 · Company policy"),
     "src_sample_th": ("นโยบายตัวอย่างภาษาไทย (บริษัทสมมติ)", "Sample Thai company policy"),
@@ -51,8 +51,15 @@ TEXT = {
     "contract_file": ("สัญญา (PDF)", "Contract (PDF)"),
     "pick_sample": ("เลือกสัญญาตัวอย่าง", "Choose a sample contract"),
     "s_method": ("3 · วิธีตรวจ", "3 · Method"),
-    "m_agent": ("Agent (มีผู้ตรวจซ้ำ)", "Agent (with verifier)"),
-    "m_baseline": ("Baseline (เรียก AI ครั้งเดียว)", "Baseline (single AI call)"),
+    "m_agent": ("Agent (มีตัวตรวจซ้ำ)", "Agent (with verifier)"),
+    "m_baseline": ("Single call (เรียก AI ครั้งเดียว)", "Single call (one AI call)"),
+    "cap_single": ("~20 วิ · ≈0.3 บาท · สัญญาสั้น", "~20 s · ≈0.3 baht · short contracts"),
+    "cap_agent": ("~1–3 นาที · ≈2 บาท · ตรวจซ้ำทุกข้อ · สัญญายาว", "~1–3 min · ≈2 baht · every quote checked · long contracts"),
+    "up_req": ("PDF ภาษาไทยหรืออังกฤษ · ไฟล์ข้อความหรือสแกน (สแกนให้เปิดสวิตช์ vision ด้านล่าง)",
+               "Thai or English PDF · text or scanned (for scans keep the vision switch on)"),
+    "up_pages": ("ไฟล์นี้ {n} หน้า", "This file has {n} pages"),
+    "rec_short": ("แนะนำ Single call", "Single call recommended"),
+    "rec_long": ("สัญญายาว: แนะนำลอง Agent", "Long contract: try the Agent"),
     "vision": ("อ่านหน้า scan / ภาษาไทยที่อ่านไม่ออกด้วย vision model", "Read scanned or garbled pages with a vision model"),
     "run": ("วิเคราะห์สัญญา", "Analyse contract"),
     "tab_policy": ("① นโยบายบริษัท", "① Company policy"),
@@ -81,32 +88,32 @@ TEXT = {
     "seconds": ("วินาที", "s"),
     "k_total": ("หัวข้อที่ตรวจ", "Rules checked"), "k_high": ("ความเสี่ยงสูง", "High risk"),
     "k_med": ("ความเสี่ยงปานกลาง", "Medium risk"), "k_miss": ("ข้อที่ขาดหายไป", "Missing clauses"),
-    "k_ver": ("ผ่านผู้ตรวจซ้ำ", "Passed verifier"),
+    "k_ver": ("ผ่านตัวตรวจซ้ำ", "Passed verifier"),
     "summary": ("สรุปสำหรับผู้บริหาร", "Executive summary"),
     "filter": ("กรองสถานะ", "Filter by status"),
     "dl_xlsx": ("ดาวน์โหลด Excel", "Download Excel"),
     "t_rule": ("กฎ", "Rule"), "t_topic": ("หัวข้อ", "Topic"), "t_status": ("สถานะ", "Status"),
-    "t_risk": ("ความเสี่ยง", "Risk"), "t_ref": ("อ้างอิงในสัญญา", "Contract reference"), "t_ver": ("ผู้ตรวจซ้ำ", "Verifier"),
+    "t_risk": ("ความเสี่ยง", "Risk"), "t_ref": ("อ้างอิงในสัญญา", "Contract reference"), "t_ver": ("ตัวตรวจซ้ำ", "Verifier"),
     "details": ("รายละเอียดรายข้อ", "Details by rule"),
     "contract_text": ("ข้อความในสัญญา", "Contract text"),
     "not_found": ("ไม่พบข้อความเกี่ยวกับหัวข้อนี้ในสัญญา", "No clause on this topic was found in the contract"),
-    "ver_found": ("ผู้ตรวจซ้ำ: พบข้อความนี้จริงในหน้า {p} (ตรง {s}/100)", "Verifier: quote found on page {p} (match {s}/100)"),
-    "ver_missing": ("ผู้ตรวจซ้ำ: อ่านข้อที่เกี่ยวข้องครบแล้วก่อนสรุปว่าไม่มี", "Verifier: relevant passages were read before concluding MISSING"),
-    "ver_fail": ("ผู้ตรวจซ้ำไม่ผ่าน: ต้องให้คนตรวจข้อนี้เอง", "Verifier failed: a person must check this item"),
+    "ver_found": ("ตัวตรวจซ้ำ: พบข้อความนี้จริงในหน้า {p} (ตรง {s}/100)", "Verifier: quote found on page {p} (match {s}/100)"),
+    "ver_missing": ("ตัวตรวจซ้ำ: อ่านข้อที่เกี่ยวข้องครบแล้วก่อนสรุปว่าไม่มี", "Verifier: relevant passages were read before concluding MISSING"),
+    "ver_fail": ("ตัวตรวจซ้ำไม่ผ่าน: ต้องให้คนตรวจข้อนี้เอง", "Verifier failed: a person must check this item"),
     "issue": ("ประเด็น", "Issue"), "action": ("สิ่งที่ต้องทำ", "Action required"),
     "redline": ("ข้อเสนอแก้ไข (redline)", "Suggested redline"),
     "hitl": ("การตรวจทานโดยฝ่ายกฎหมาย (human-in-the-loop)", "Legal review (human-in-the-loop)"),
     "r_wait": ("รอ legal อนุมัติ", "Waiting for legal"), "r_ok": ("อนุมัติข้อเสนอแก้ไข", "Approve redline"),
     "r_back": ("ส่งกลับให้ตรวจใหม่", "Send back for re-check"),
-    "trace_hint": ("หลังวิเคราะห์สัญญา แท็บนี้จะแสดงทุกขั้นที่ agent ทำ: ค้นอะไร อ่านข้อไหน ส่งคำตอบกี่ครั้ง และผู้ตรวจซ้ำส่งกลับเพราะอะไร",
+    "trace_hint": ("หลังวิเคราะห์สัญญา แท็บนี้จะแสดงทุกขั้นที่ agent ทำ: ค้นอะไร อ่านข้อไหน ส่งคำตอบกี่ครั้ง และตัวตรวจซ้ำส่งกลับเพราะอะไร",
                    "After a run, this tab shows every agent step: what it searched, which passages it read, how often it submitted, and why the verifier sent answers back"),
-    "loop": ("**วงจรของ agent ต่อกฎ 1 ข้อ:** ค้น (search) → อ่าน (read) → ส่งคำตอบ (submit) → ผู้ตรวจซ้ำตรวจด้วยโค้ด → ไม่ผ่านส่งกลับพร้อมเหตุผล · ผ่านเข้ารายงาน",
+    "loop": ("**วงจรของ agent ต่อกฎ 1 ข้อ:** ค้น (search) → อ่าน (read) → ส่งคำตอบ (submit) → ตัวตรวจซ้ำตรวจด้วยโค้ด → ไม่ผ่านส่งกลับพร้อมเหตุผล · ผ่านเข้ารายงาน",
              "**Agent loop per rule:** search → read → submit → verifier checks with code → rejected answers go back with a reason · accepted answers go into the report"),
     "m_calls": ("AI calls ทั้งหมด", "Total AI calls"), "m_wait": ("เวลารอ AI", "Time waiting for AI"),
-    "m_back": ("ถูกส่งกลับโดยผู้ตรวจซ้ำ", "Sent back by verifier"), "m_retry": ("Retry เพราะ Gemini ไม่ว่าง", "Retries (Gemini busy)"),
+    "m_back": ("ถูกส่งกลับโดยตัวตรวจซ้ำ", "Sent back by verifier"), "m_retry": ("Retry เพราะ Gemini ไม่ว่าง", "Retries (Gemini busy)"),
     "trace_row": ("{id} · {cat} — {n} AI calls, ส่งกลับ {r} ครั้ง", "{id} · {cat} — {n} AI calls, sent back {r} times"),
-    "v_ok": ("ผู้ตรวจซ้ำ: ผ่าน", "Verifier: passed"), "v_score": (" (ข้อความตรง {s}/100)", " (quote match {s}/100)"),
-    "v_back": ("ผู้ตรวจซ้ำ: ส่งกลับ — {f}", "Verifier: sent back — {f}"),
+    "v_ok": ("ตัวตรวจซ้ำ: ผ่าน", "Verifier: passed"), "v_score": (" (ข้อความตรง {s}/100)", " (quote match {s}/100)"),
+    "v_back": ("ตัวตรวจซ้ำ: ส่งกลับ — {f}", "Verifier: sent back — {f}"),
     "log": ("Log ทุก AI call (tokens / เวลา)", "Log of every AI call (tokens / time)"),
     "pm_auto": ("อัตโนมัติ: AI ระบุประเภทสัญญา แล้วใช้นโยบายของประเภทนั้น", "Automatic: AI finds the contract type, then uses that type's policy"),
     "go_policy_lib": ("จัดการคลังนโยบาย →", "Manage policy library →"),
@@ -144,6 +151,28 @@ TEXT = {
     "prof_saved": ("บันทึกแล้ว สัญญาประเภทนี้ครั้งถัดไปจะใช้นโยบายนี้ แก้ไขได้ที่แท็บนโยบายบริษัท",
                    "Saved. The next contract of this type uses this policy; edit it in the Company policy tab"),
     "ai_tag": ("AI เขียน", "AI-written"),
+    "col_draft": ("ร่าง AI", "AI draft"),
+    "col_origin": ("ที่มา", "Origin"), "col_added": ("วันที่เพิ่ม", "Added"),
+    "hist_title": ("ประวัติและการใช้งานของนโยบาย", "Policy history and usage"),
+    "use_title": ("การใช้งานของกฎใน{type}", "How the {type} rules were used"),
+    "use_note": ("นับจากผลตรวจที่บันทึกไว้ (แท็บสัญญาทั้งหมด) · กฎที่ไม่เคยเจอปัญหาเลย หรือเจอบ่อยจนทุกสัญญาไม่ผ่าน ควรทบทวน",
+                 "Counted from saved reviews (Portfolio tab) · review rules that never find anything, or that fail every contract"),
+    "use_rule": ("กฎ", "Rule"), "use_n": ("ใช้ตรวจ (ฉบับ)", "Contracts"), "use_last": ("ใช้ล่าสุด", "Last used"),
+    "log_title": ("บันทึกการเปลี่ยนแปลง", "Change log"), "log_empty": ("ยังไม่มีการเปลี่ยนแปลง", "No changes yet"),
+    "log_when": ("เวลา", "When"), "log_action": ("การเปลี่ยนแปลง", "Change"), "log_group": ("ประเภทสัญญา", "Contract type"),
+    "log_detail": ("รายละเอียด", "Detail"),
+    "act_ai_draft": ("AI ร่างนโยบาย", "AI draft"), "act_pdf_import": ("นำเข้าจาก PDF", "PDF import"),
+    "act_edit": ("แก้ไข", "Edit"), "act_confirm": ("ยืนยันนโยบาย", "Confirmed"),
+    "col_draft_help": ("ติ๊ก = AI เขียน ยังไม่ได้ยืนยัน · เอาติ๊กออกแล้วกดบันทึกเพื่อยืนยันเป็นนโยบาย",
+                       "Ticked = written by AI, not confirmed yet · untick and save to confirm it as policy"),
+    "lib_draft_note": ("ประเภทนี้มีกฎที่ AI ร่างไว้ {n} ข้อ ยังไม่ได้ยืนยัน · ตรวจ แก้ หรือลบได้ในตาราง แล้วกดยืนยัน",
+                       "{n} rules for this type are AI drafts, not confirmed yet · review, edit or delete them, then confirm"),
+    "lib_confirm": ("ยืนยันนโยบายของประเภทนี้", "Confirm this type's policy"),
+    "lib_confirmed": ("ยืนยันแล้ว", "Confirmed"),
+    "prof_drafted": ("บันทึกเกณฑ์เหล่านี้เป็นร่างนโยบายของ{type}ในคลังแล้ว สัญญาประเภทนี้ครั้งถัดไปจะใช้ร่างนี้ · ตรวจ แก้ และยืนยันได้ที่แท็บนโยบายบริษัท",
+                     "These criteria were saved as a draft {type} policy. The next contract of this type uses it · review, edit and confirm in the Company policy tab"),
+    "prof_lib_draft": ("นโยบายของ{type} {n} ข้อ (ร่างจาก AI ยังไม่ยืนยัน)", "{n} rules from the {type} policy (AI draft, not confirmed)"),
+    "go_review": ("ตรวจและยืนยันนโยบาย →", "Review and confirm the policy →"),
 }
 
 st.session_state.setdefault("lang", "th")
@@ -177,14 +206,28 @@ STATUS_COLOR = {"COMPLIANT": "green", "DEVIATED": "orange", "VIOLATED": "red", "
 RISK_COLOR = {"HIGH": "red", "MEDIUM": "orange", "LOW": "gray"}
 STATUS_ICON = {"COMPLIANT": "✅", "DEVIATED": "🟠", "VIOLATED": "🔴", "MISSING": "⚪"}
 POLICY_SOURCES = {"src_sample_th": config.ROOT / "data" / "sample_company_policy_th.yaml", "src_upload": None}
-COLS = ["use", "id", "title_th", "title", "text", "if_absent", "keywords"]
+COLS = ["use", "draft", "id", "title_th", "title", "text", "if_absent", "keywords", "origin", "added"]
 
 
 def rules_to_df(rules: list[dict]) -> pd.DataFrame:
-    rows = [{"use": True, "id": r["id"], "title_th": r.get("title_th", ""), "title": r.get("title", ""),
+    rows = [{"use": True, "draft": bool(r.get("draft")), "id": r["id"], "title_th": r.get("title_th", ""), "title": r.get("title", ""),
              "text": " ".join(str(r.get("text", "")).split()), "if_absent": r.get("if_absent", "MISSING"),
-             "keywords": ", ".join(r.get("keywords", []))} for r in rules]
+             "keywords": ", ".join(r.get("keywords", [])), "origin": r.get("origin", ""), "added": r.get("added", "")}
+            for r in rules]
     return pd.DataFrame(rows, columns=COLS)
+
+
+EDITED = "เพิ่มเองในแอป"
+LONG_PAGES = 30  # above this, the agent is suggested (single call was tested up to ~15 pages)
+
+
+@st.cache_data(show_spinner=False, max_entries=8)
+def page_count(data: bytes) -> int:
+    import pymupdf
+    try:
+        return len(pymupdf.open(stream=data, filetype="pdf"))
+    except Exception:
+        return 0
 
 
 def df_to_rules(df: pd.DataFrame) -> list[dict]:
@@ -195,7 +238,10 @@ def df_to_rules(df: pd.DataFrame) -> list[dict]:
         out.append({"id": str(r["id"]).strip() or f"P-{len(out) + 1:02d}", "title": str(r["title"] or r["title_th"]),
                     "title_th": str(r["title_th"] or r["title"]), "text": str(r["text"]),
                     "if_absent": r["if_absent"] if r["if_absent"] in ("MISSING", "COMPLIANT") else "MISSING",
-                    "keywords": [k.strip() for k in str(r["keywords"]).split(",") if k.strip()]})
+                    "keywords": [k.strip() for k in str(r["keywords"]).split(",") if k.strip()],
+                    "origin": str(r.get("origin") or "") if str(r.get("origin") or "") not in ("", "nan", "None") else EDITED,
+                    "added": str(r.get("added") or "") if str(r.get("added") or "") not in ("", "nan", "None") else today()}
+                   | ({"draft": True} if r.get("draft") is True or r.get("draft") == 1 else {}))
     return out
 
 
@@ -256,10 +302,15 @@ with st.sidebar:
 
     st.subheader(t("s_contract"))
     source, sample = "c_upload", None
+    st.caption(t("up_req"))
     upload = st.file_uploader(t("contract_file"), type="pdf", key="contract_pdf", label_visibility="collapsed")
+    n_pages = page_count(upload.getvalue()) if upload is not None else 0
+    if upload is not None:
+        st.caption(t("up_pages", n=n_pages) + " · " + t("rec_long" if n_pages > LONG_PAGES else "rec_short"))
 
     st.subheader(t("s_method"))
-    mode = pick(st.radio, "method", ["m_agent", "m_baseline"], format_func=label_fn(st.session_state.lang), label_visibility="collapsed")
+    mode = pick(st.radio, "method", ["m_baseline", "m_agent"], format_func=label_fn(st.session_state.lang),
+                label_visibility="collapsed", captions=[t("cap_single"), t("cap_agent")])
     vision = st.toggle(t("vision"), value=True)
     st.caption(f"Model: `{config.MODEL}`")
     run = st.button(t("run"), type="primary", width="stretch",
@@ -280,13 +331,13 @@ TEXT.update({
     "vd_warn": ("ลงนามได้หลังเจรจาแก้ไข", "Sign after negotiating changes"),
     "vd_warn_sub": ("ไม่ตรงนโยบาย {n} ข้อ ไม่มีข้อเสี่ยงสูงที่ขัดหรือขาดหาย", "{n} issues, none high-risk violated or missing"),
     "vd_ok": ("ลงนามได้", "OK to sign"), "vd_ok_sub": ("ทุกข้อเป็นไปตามนโยบาย", "Every rule is met"),
-    "vd_unver": ("ผู้ตรวจซ้ำยืนยันไม่ได้ {n} ข้อ ต้องให้คนตรวจ", "{n} not confirmed by the verifier, a person must check"),
+    "vd_unver": ("ตัวตรวจซ้ำยืนยันไม่ได้ {n} ข้อ ต้องให้คนตรวจ", "{n} not confirmed by the verifier, a person must check"),
     "vd_fix": ("สิ่งที่ต้องแก้ เรียงจากเสี่ยงมากไปน้อย", "What to fix, most severe first"),
     "vd_more": ("และอีก {n} ข้อ ดูในตารางด้านล่าง", "and {n} more in the table below"),
     "summary_ai": ("สรุปสำหรับผู้บริหาร (เขียนโดย AI)", "Executive summary (written by AI)"),
     "run_meta": ("{mode} · {s} วินาที · {calls} AI calls · {tok} tokens · ต้นทุน ${cost} · {model}",
                  "{mode} · {s} s · {calls} AI calls · {tok} tokens · cost ${cost} · {model}"),
-    "app_sub": ("ตรวจสัญญาจัดซื้อเทียบนโยบายบริษัท", "Supplier contract review against company policy"),
+    "app_sub": ("ตรวจสัญญาทุกประเภทเทียบนโยบายบริษัทตามประเภทสัญญา", "Contract review against your company policy for each contract type"),
     "st_policy": ("นโยบาย", "Policy"), "st_contract": ("สัญญา", "Contract"),
     "st_ai": ("AI ตรวจ", "AI review"), "st_legal": ("ฝ่ายกฎหมาย", "Legal review"),
     "k_score": ("คะแนนความสอดคล้อง", "Compliance score"),
@@ -296,7 +347,7 @@ TEXT.update({
     "map_title": ("แผนที่สัญญา: ข้อที่ตรวจอยู่หน้าไหน", "Contract map: where each finding sits"),
     "map_note": ("แต่ละช่องคือ 1 หน้า จุดสีคือข้อที่พบในหน้านั้น ชี้เมาส์เพื่อดูชื่อ", "Each tile is a page; a dot is a finding on that page. Hover for its name"),
     "effort_title": ("แรงที่ agent ใช้ต่อกฎ", "Agent effort per rule"),
-    "effort_note": ("จำนวน AI calls ต่อกฎ · ↺ = ผู้ตรวจซ้ำส่งกลับ", "AI calls per rule · ↺ = sent back by the verifier"),
+    "effort_note": ("จำนวน AI calls ต่อกฎ · ↺ = ตัวตรวจซ้ำส่งกลับ", "AI calls per rule · ↺ = sent back by the verifier"),
     "sent_back": ("ครั้งที่ถูกส่งกลับ", "send-backs"),
     "findings": ("ผลตรวจรายข้อ", "Findings"),
     "open_viewer": ("ดูในสัญญา →", "Open in contract →"),
@@ -310,7 +361,7 @@ TEXT.update({
     "p_empty": ("ยังไม่มีสัญญาที่ตรวจแล้ว", "No reviewed contracts yet"),
     "p_contract": ("สัญญา", "Contract"), "p_when": ("เมื่อ", "When"), "p_mode": ("วิธี", "Method"),
     "p_split": ("สถานะ", "Status split"), "p_high": ("เสี่ยงสูง", "High"), "p_miss": ("ขาด", "Missing"),
-    "p_ver": ("ผ่านผู้ตรวจซ้ำ", "Verified"),
+    "p_ver": ("ผ่านตัวตรวจซ้ำ", "Verified"),
     "status_names": ("ผ่าน|เบี่ยงเล็กน้อย|ขัดนโยบาย|ไม่มีข้อนี้", "Compliant|Deviated|Violated|Missing"),
     "pb_title": ("Agent กำลังตรวจสัญญา", "Agent is reviewing the contract"),
     "pb_read": ("อ่านเอกสาร: {n} หน้า · {kinds} · แบ่งได้ {p} ข้อ", "Read {n} pages · {kinds} · {p} passages"),
@@ -318,7 +369,7 @@ TEXT.update({
     "pb_wait": ("รอคิว", "waiting"), "pb_run": ("กำลังตรวจ", "checking"),
     "pb_calls": ("{n} AI calls · ส่งกลับ {r}", "{n} AI calls · sent back {r}"),
     "pb_summary": ("กำลังเขียนสรุปสำหรับผู้บริหาร ...", "Writing the executive summary ..."),
-    "pb_single": ("Baseline: ส่งสัญญาทั้งฉบับให้ AI ครั้งเดียว ...", "Baseline: sending the whole contract in one AI call ..."),
+    "pb_single": ("Single call: ส่งสัญญาทั้งฉบับให้ AI ครั้งเดียว ...", "Single call: sending the whole contract in one AI call ..."),
     "skel_hint": ("ผลจะแสดงที่นี่หลังกด **วิเคราะห์สัญญา** · ระหว่างทำงานจะเห็นความคืบหน้าของ agent ทีละข้อ",
                   "Results appear here after **Analyse contract** · while it runs you see the agent's progress rule by rule"),
     "p_open": ("ดูแดชบอร์ด", "Open dashboard"),
@@ -329,6 +380,13 @@ TEXT.update({
     "p_search_ph": ("ชื่อสัญญา ประเภท วิธี หรือวันที่", "Contract name, type, method or date"),
     "p_click": ("คลิกแถวเพื่อเปิด", "Click a row to open"),
     "p_type": ("ประเภท", "Type"),
+    "p_policy": ("นโยบายที่ใช้", "Policy used"),
+    "pol_company": ("นโยบายบริษัท", "company policy"),
+    "pol_company_edit": ("นโยบายบริษัท + คนแก้", "company policy + human edits"),
+    "pol_ai_draft": ("AI ร่าง (ยังไม่ยืนยัน)", "AI draft (not confirmed)"),
+    "pol_ai_human": ("AI + คนตรวจแล้ว", "AI + human confirmed"),
+    "pol_manual": ("ชุดกำหนดเอง", "manual rule set"),
+    "pol_manual_old": ("กฎชุดเดียวทุกสัญญา", "one rule set for all"),
     "p_legend": ("คลิกที่แถวเพื่อเปิดทันที · สถานะ: {s}", "Click a row to open it · status: {s}"),
     "v_prev": ("หน้าก่อน", "Previous page"), "v_next": ("หน้าถัดไป", "Next page"),
     "v_of": ("หน้า {p} / {n}", "Page {p} / {n}"),
@@ -435,7 +493,7 @@ START = {
                 "และบอกว่าควรลงนามหรือไม่ พร้อมไฮไลต์ข้อความจริงในสัญญาทุกข้อ",
         "stats": "สัญญาที่ตรวจแล้ว {n} ฉบับ · คลังนโยบายมี {k} ประเภท",
         "what": [("ระบุประเภทสัญญา", "AI อ่านต้นสัญญา บอกประเภท (จาก 25 ประเภทของ CUAD) ฝ่ายเรา และคู่สัญญา แล้วดึงนโยบายของประเภทนั้นจากคลัง"),
-                 ("ตรวจทีละข้อ", "Agent ค้นและอ่านสัญญาเฉพาะส่วนที่เกี่ยวกับกฎแต่ละข้อ ผู้ตรวจซ้ำ (โค้ด) ยืนยันว่าข้อความที่อ้างมีอยู่จริง"),
+                 ("ตรวจทีละข้อ", "Agent ค้นและอ่านสัญญาเฉพาะส่วนที่เกี่ยวกับกฎแต่ละข้อ ตัวตรวจซ้ำ (โค้ด) ยืนยันว่าข้อความที่อ้างมีอยู่จริง"),
                  ("สรุปให้ตัดสินใจ", "ลงนามได้ไหม · สิ่งที่ต้องแก้เรียงตามความเสี่ยง · PDF พร้อมไฮไลต์ · ฝ่ายกฎหมายอนุมัติข้อเสี่ยงสูง")],
         "how_title": "วิธีใช้ 5 ขั้น",
         "how": [("เลือกภาษา", "แถบซ้ายบนสุด ผลที่ AI เขียนจะเป็นภาษานั้น"),
@@ -516,12 +574,15 @@ def rules_editor(df: pd.DataFrame, key: str) -> pd.DataFrame:
         df, num_rows="dynamic", hide_index=True, width="stretch", key=key,
         column_config={
             "use": st.column_config.CheckboxColumn("use", width="small", default=True),
+            "draft": st.column_config.CheckboxColumn(t("col_draft"), width="small", default=False, help=t("col_draft_help")),
             "id": st.column_config.TextColumn(t("col_id"), width="small"),
             "title_th": st.column_config.TextColumn(t("col_title") + " (TH)", width="medium"),
             "title": st.column_config.TextColumn(t("col_title") + " (EN)", width="medium"),
             "text": st.column_config.TextColumn(t("col_text"), width="large"),
             "if_absent": st.column_config.SelectboxColumn("if_absent", options=["MISSING", "COMPLIANT"], width="small"),
             "keywords": st.column_config.TextColumn(t("col_kw"), width="medium"),
+            "origin": st.column_config.TextColumn(t("col_origin"), width="medium", disabled=True),
+            "added": st.column_config.TextColumn(t("col_added"), width="small", disabled=True),
         })
 
 
@@ -531,21 +592,49 @@ if view == "policy" and auto:
     lib_now = current_library()
     _lang = st.session_state.lang
     chips = "".join(
-        f"<span class='cc-pill{' on' if lib_now.get(g) else ''}'>{ui.esc(type_label(g, _lang))} · "
-        f"{t('lib_count', n=len(lib_now[g])) if lib_now.get(g) else '–'}</span>" for g in GROUPS_TH)
+        f"<span class='cc-pill{' on' if lib_now.get(g) else ''}{' draft' if any(r.get('draft') for r in lib_now.get(g, [])) else ''}'>"
+        f"{ui.esc(type_label(g, _lang))} · "
+        f"{t('lib_count', n=len(lib_now[g])) if lib_now.get(g) else '–'}"
+        f"{' · ' + t('col_draft') if any(r.get('draft') for r in lib_now.get(g, [])) else ''}</span>" for g in GROUPS_TH)
     st.html(f"<div class='cc-pills'>{chips}</div>")
     st.markdown(f"**{t('lib_pick')}**")
     group = pick(st.selectbox, "lib_group", list(GROUPS_TH), format_func=(lambda g, _l=_lang: type_label(g, _l)),
                  label_visibility="collapsed")
     if not lib_now.get(group):
         st.caption(t("lib_none"))
+    n_draft = sum(bool(r.get("draft")) for r in lib_now.get(group, []))
+    if n_draft:
+        n1, n2 = st.columns([3, 1], vertical_alignment="center")
+        n1.warning(t("lib_draft_note", n=n_draft))
+        if n2.button(t("lib_confirm"), width="stretch"):
+            lib = current_library()
+            lib[group] = [{k: v for k, v in r.items() if k != "draft"} for r in lib.get(group, [])]
+            lib = {g: renumber(v, prefix_for(g)) for g, v in lib.items()}
+            save_library(lib)
+            log_change("confirm", group, f"{len(lib.get(group, []))} ข้อ")
+            reset_library_tables(lib)
+            st.toast(t("lib_confirmed"))
+            st.rerun()
     key = f"libdf_{group}"
     if key not in st.session_state:
         st.session_state[key] = rules_to_df(st.session_state.library.get(group, []))
     st.session_state[key] = rules_editor(st.session_state[key], f"lib_editor_{group}")
     c1, c2 = st.columns(2)
     if c1.button(t("lib_save"), type="primary", width="stretch"):
+        before = st.session_state.library
         lib = {g: renumber(v, prefix_for(g)) for g, v in current_library().items()}
+        for g in sorted(set(before) | set(lib)):
+            old = {r.get("title"): r for r in before.get(g, [])}
+            new = {r.get("title"): r for r in lib.get(g, [])}
+            added, removed = set(new) - set(old), set(old) - set(new)
+            changed = [k for k in set(new) & set(old)
+                       if {x: new[k].get(x) for x in ("text", "if_absent", "keywords", "draft")}
+                       != {x: old[k].get(x) for x in ("text", "if_absent", "keywords", "draft")}]
+            if added or removed or changed:
+                log_change("edit", g, " · ".join(x for x in (
+                    f"เพิ่ม {len(added)}: {', '.join(sorted(added))[:80]}" if added else "",
+                    f"ลบ {len(removed)}: {', '.join(sorted(removed))[:80]}" if removed else "",
+                    f"แก้ {len(changed)}: {', '.join(sorted(changed))[:80]}" if changed else "") if x))
         save_library(lib)
         reset_library_tables(lib)
         st.toast(t("lib_saved"))
@@ -559,7 +648,7 @@ if view == "policy" and auto:
             tmp.write_bytes(pol.getvalue())
             with st.spinner(t("extracting")):
                 try:
-                    new = extract_rules(tmp)
+                    new = [r | {"origin": f"PDF: {pol.name[:40]}", "added": today()} for r in extract_rules(tmp)]
                     lib = merge_into_library(current_library(), new)
                     save_library(lib)
                     reset_library_tables(lib)
@@ -567,12 +656,33 @@ if view == "policy" and auto:
                     for r in new:
                         for g in (r.get("applies_to") or [GENERAL]):
                             added[g] = added.get(g, 0) + 1
+                    for g, n in added.items():
+                        log_change("pdf_import", g, f"{n} ข้อ จาก {pol.name[:40]}")
                     st.session_state.lib_msg = t("lib_merged", s=", ".join(f"{type_label(g, _lang)} {n}" for g, n in added.items()))
                     st.rerun()
                 except Exception as e:
                     st.error(f"{type(e).__name__}: {str(e)[:200]}")
         if st.session_state.get("lib_msg"):
             st.success(st.session_state.lib_msg)
+
+    st.subheader(t("hist_title"))
+    st.markdown(f"**{t('use_title', type=type_label(group, _lang))}**")
+    usage = rule_usage(group, lib_now.get(group, []))
+    if usage:
+        st.dataframe(pd.DataFrame([{
+            t("use_rule"): u["title"], t("use_n"): u["n"], t("use_last"): u["last"] or "–",
+            "✕ VIOLATED": u["VIOLATED"], "∅ MISSING": u["MISSING"], "~ DEVIATED": u["DEVIATED"], "✓ COMPLIANT": u["COMPLIANT"],
+        } for u in usage]), hide_index=True, width="stretch")
+        st.caption(t("use_note"))
+    st.markdown(f"**{t('log_title')}**")
+    log = read_log()
+    if not log:
+        st.caption(t("log_empty"))
+    else:
+        st.dataframe(pd.DataFrame([{
+            t("log_when"): x["time"].replace("T", " "), t("log_action"): t(f"act_{x['action']}") if f"act_{x['action']}" in TEXT else x["action"],
+            t("log_group"): type_label(x["group"], _lang), t("log_detail"): x.get("detail", ""),
+        } for x in log]), hide_index=True, width="stretch")
 
 if view == "policy" and not auto:
     st.subheader(t("rules_title"))
@@ -638,6 +748,16 @@ if run:
                 prog["foot"] = t("pb_criteria")
                 draw()
             active, origin = criteria_for(profile, lib, trace, lang)
+            if origin == "ai":  # keep them as a DRAFT policy for this type; a person confirms or edits later
+                src_name = doc.title.split("-EX-")[0][:40]
+                lib[profile.contract_type] = renumber(
+                    [{k: r[k] for k in ("title", "title_th", "text", "if_absent", "keywords")}
+                     | {"draft": True, "origin": f"AI ร่างจากสัญญา {src_name}", "added": today()}
+                     for r in active if r["source"] == "ai"], prefix_for(profile.contract_type))
+                save_library(lib)
+                log_change("ai_draft", profile.contract_type,
+                           f"{len(lib[profile.contract_type])} ข้อ จากสัญญา {src_name}")
+                reset_library_tables(lib)
             context = context_line(profile)
             prog["read"] += " · " + t("pb_profiled", type=type_label(profile.contract_type, lang),
                                       g=sum(r["source"] == "general" for r in active),
@@ -666,6 +786,7 @@ if run:
         {"mode": mode, "lang": lang, "seconds": seconds, "n_pages": len(pages), "pdf": str(kept_pdf),
          "trace": str(trace_fp), "model": config.MODEL,
          "profile": profile.model_dump() if profile else None, "origin": origin,
+         "policy_name": (type_label(profile.contract_type, "th") if profile else t(st.session_state.policy_source or "src_upload")),
          "criteria": active},
         ensure_ascii=False), encoding="utf-8")
     for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_"))]:
@@ -748,6 +869,7 @@ if view == "dash":
                 f"<li><b>{ui.esc(x['id'])}</b> {ui.esc(name(x))}"
                 + (f" — <span class='cc-muted'>{ui.esc(x.get('why') or '')}</span>" if note else "") + "</li>" for x in xs)
             spec_head = (t("prof_ai", type=tname, n=len(spec)) if res.get("origin") == "ai"
+                         else t("prof_lib_draft", type=tname, n=len(spec)) if any(x.get("draft") for x in spec)
                          else t("prof_lib", type=tname, n=len(spec)))
             st.html(
                 f"<div class='cc-card'><div class='cc-label'>{t('prof_title')}</div>"
@@ -761,13 +883,13 @@ if view == "dash":
                 f"<div><b>{spec_head}</b><ul style='margin:4px 0'>{items(spec, res.get('origin') == 'ai')}</ul>"
                 + (f"<div class='cc-muted'>{t('prof_ai_note')}</div>" if res.get("origin") == "ai" else "")
                 + "</div></div></div>")
-            if res.get("origin") == "ai" and st.button(t("prof_save", type=tname)):
-                lib = current_library()
-                lib[ctype] = renumber([{k: x[k] for k in ("title", "title_th", "text", "if_absent", "keywords")}
-                                       for x in spec], prefix_for(ctype))
-                save_library(lib)
-                reset_library_tables(lib)
-                st.success(t("prof_saved"))
+            if res.get("origin") == "ai" or any(x.get("draft") for x in spec):
+                d1, d2 = st.columns([3, 1], vertical_alignment="center")
+                d1.info(t("prof_drafted", type=tname) if res.get("origin") == "ai" else t("lib_draft_note", n=len(spec)))
+                if d2.button(t("go_review"), width="stretch"):
+                    st.session_state[f"choice_lib_group"] = ctype
+                    st.session_state.goto = "policy"
+                    st.rerun()
 
         counts = {s: sum(r.finding.compliance_status == s for r in findings) for s in STATUS_COLOR}
         level = ui.verdict_level(findings)
@@ -870,6 +992,26 @@ if view == "trace":
             st.dataframe(pd.DataFrame(llm), hide_index=True, width="stretch")
 
 # ================= tab 5: portfolio =================
+def policy_label(meta: dict, lang: str) -> str:
+    """Which policy a saved run used, and where its type-specific rules came from."""
+    prof, crit = meta.get("profile"), meta.get("criteria") or []
+    if not prof:
+        return f"{meta.get('policy_name') or t('pol_manual_old')} · {t('pol_manual')}"
+    name = type_label(prof["contract_type"], lang)
+    spec = [c for c in crit if c.get("source") in ("library", "ai")]
+    origins = [str(c.get("origin") or "") for c in spec]
+    if meta.get("origin") == "ai" or any(c.get("draft") for c in spec):
+        kind = t("pol_ai_draft")
+    elif any(o.startswith("AI") for o in origins):
+        kind = t("pol_ai_human")
+    elif any(o == EDITED for o in origins):
+        kind = t("pol_company_edit")
+    else:
+        kind = t("pol_company")
+    return f"{name} · {kind}"
+
+
+
 if view == "port":
     st.subheader(t("p_title"))
     st.caption(t("p_note"))
@@ -882,9 +1024,10 @@ if view == "port":
             continue
         meta_fp = fp.with_name(fp.stem + ".meta.json")
         try:
-            prof = json.loads(meta_fp.read_text(encoding="utf-8")).get("profile") if meta_fp.exists() else None
+            meta = json.loads(meta_fp.read_text(encoding="utf-8")) if meta_fp.exists() else {}
         except Exception:
-            prof = None
+            meta = {}
+        prof = meta.get("profile")
         cnt = {s: sum(r.finding.compliance_status == s for r in rep.findings) for s in STATUS_COLOR}
         n = max(len(rep.findings), 1)
         paths.append(fp)
@@ -892,7 +1035,8 @@ if view == "port":
             t("p_contract"): rep.contract_title.split("-EX-")[0][:48],
             t("p_type"): type_label(prof["contract_type"], _l) if prof else "–",
             t("p_when"): time.strftime("%d %b %H:%M", time.localtime(fp.stat().st_mtime)),
-            t("p_mode"): "Baseline" if fp.stem.endswith("baseline") else "Agent",
+            t("p_mode"): "Single call" if fp.stem.endswith("baseline") else "Agent",
+            t("p_policy"): policy_label(meta, _l),
             t("k_score"): 100 * cnt["COMPLIANT"] / n,
             t("p_split"): "   ".join(f"{ui.STATUS[s][1]} {cnt[s]}" for s in STATUS_COLOR),
             t("p_high"): rep.counts["high"], t("p_miss"): rep.counts["missing"],

@@ -9,6 +9,8 @@ and the two parties. Then it loads All + the rules for that type. If the library
 for that type yet, the agent writes criteria for it (labelled AI, ids A-xx); the owner can
 review them and save them into the library.
 """
+import datetime
+import json
 from pathlib import Path
 from typing import Literal
 
@@ -62,6 +64,61 @@ def library_to_yaml(lib: dict[str, list[dict]]) -> str:
 
 def save_library(lib: dict[str, list[dict]], path: Path = LIBRARY_PATH) -> None:
     path.write_text(library_to_yaml(lib), encoding="utf-8")
+
+
+# ---------- track record: where each rule came from, and what changed when ----------
+LOG_PATH = config.OUTPUT_DIR / "policy_log.jsonl"
+
+
+def today() -> str:
+    return datetime.date.today().isoformat()
+
+
+def log_change(action: str, group: str, detail: str = "") -> None:
+    """Append one line to the policy change log (ai_draft / pdf_import / edit / confirm)."""
+    config.OUTPUT_DIR.mkdir(exist_ok=True)
+    row = {"time": datetime.datetime.now().isoformat(timespec="seconds"), "action": action, "group": group, "detail": detail}
+    with LOG_PATH.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def read_log() -> list[dict]:
+    if not LOG_PATH.exists():
+        return []
+    rows = []
+    for line in LOG_PATH.read_text(encoding="utf-8").splitlines():
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return rows[::-1]
+
+
+def rule_usage(group: str, rules: list[dict]) -> list[dict]:
+    """How often each rule of a group was used in saved reviews, and what it found (matched by rule title)."""
+    stats = {r.get("title", ""): {"n": 0, "last": "", "VIOLATED": 0, "MISSING": 0, "DEVIATED": 0, "COMPLIANT": 0}
+             for r in rules}
+    for meta_fp in config.OUTPUT_DIR.glob("*.meta.json"):
+        try:
+            meta = json.loads(meta_fp.read_text(encoding="utf-8"))
+            report = json.loads(meta_fp.with_name(meta_fp.name.replace(".meta.json", ".json")).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        prof = meta.get("profile") or {}
+        if group != GENERAL and prof.get("contract_type") != group:
+            continue
+        status = {f["finding"]["policy_id"]: f["finding"]["compliance_status"] for f in report.get("findings", [])}
+        when = datetime.datetime.fromtimestamp(meta_fp.stat().st_mtime).date().isoformat()
+        for c in meta.get("criteria") or []:
+            if group == GENERAL and c.get("source") != "general":
+                continue
+            st_ = stats.get(c.get("title", ""))
+            if st_ is None or c.get("id") not in status:
+                continue
+            st_["n"] += 1
+            st_["last"] = max(st_["last"], when)
+            st_[status[c["id"]]] = st_.get(status[c["id"]], 0) + 1
+    return [{"title": t, **v} for t, v in stats.items()]
 
 
 def renumber(rules: list[dict], prefix: str) -> list[dict]:

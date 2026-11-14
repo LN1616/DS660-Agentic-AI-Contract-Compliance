@@ -94,6 +94,7 @@ h1, h2, h3 { letter-spacing: -0.01em; }
 .cc-pills { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 12px; }
 .cc-pill { font-size:12.5px; padding:3px 10px; border-radius:6px; border:1px solid #dfe2ec; background:#fff; color:#7a7f96; }
 .cc-pill.on { border-color:#2a54d6; color:#2a54d6; background:#e6ecfc; font-weight:600; }
+.cc-pill.draft { border-style:dashed; border-color:#b77d00; color:#b77d00; background:#fff6e0; }
 .cc-verdict { border:2px solid; border-radius:12px; padding:16px 18px; }
 .cc-vicon { width:44px; height:44px; border-radius:50%; color:#fff; display:grid; place-items:center; font-size:22px; font-weight:700; flex:none; }
 .cc-vtitle { font-size:24px; font-weight:700; line-height:1.25; }
@@ -105,6 +106,7 @@ h1, h2, h3 { letter-spacing: -0.01em; }
 @media (max-width:760px) { .cc-iss { grid-template-columns:1fr; } }
 .cc-how { display:grid; grid-template-columns:30px 1fr; gap:12px; padding:8px 0; border-top:1px solid #eef0f5; }
 .cc-hown { width:28px; height:28px; border-radius:50%; background:#2a54d6; color:#fff; display:grid; place-items:center; font-weight:600; font-size:13px; }
+[data-testid="stSidebar"] [data-testid="stRadio"] [data-testid="stCaptionContainer"] p { font-size: 12px; line-height: 1.4; }
 </style>
 """
 

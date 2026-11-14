@@ -15,6 +15,8 @@ types:
       - breach
       - ข้อมูลส่วนบุคคล
       - ละเมิด
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: G-02
       title: Governing law and jurisdiction
       title_th: กฎหมายที่ใช้บังคับและเขตอำนาจศาล
@@ -27,6 +29,8 @@ types:
       - Thai court
       - กฎหมายไทย
       - ศาลไทย
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
   Maintenance:
     rules:
     - id: P-01
@@ -41,6 +45,8 @@ types:
       - days
       - ชำระเงิน
       - ใบแจ้งหนี้
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-02
       title: Limitation of liability cap
       title_th: เพดานความรับผิด
@@ -54,6 +60,8 @@ types:
       - cap
       - ความรับผิด
       - จำกัดความรับผิด
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-03
       title: Exclusion from liability cap for willful misconduct or data breach
       title_th: ข้อยกเว้นเพดานความรับผิดกรณีจงใจหรือละเมิดข้อมูล
@@ -66,6 +74,8 @@ types:
       - ละเมิด
       - จงใจ
       - ข้อมูลส่วนบุคคล
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-04
       title: Termination for convenience
       title_th: การบอกเลิกสัญญาโดยไม่ต้องมีเหตุ
@@ -79,6 +89,8 @@ types:
       - written notice
       - บอกเลิกสัญญา
       - บอกกล่าวล่วงหน้า
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-05
       title: Prohibition of automatic renewal
       title_th: ห้ามต่ออายุสัญญาโดยอัตโนมัติ
@@ -91,6 +103,8 @@ types:
       - in writing
       - ต่ออายุสัญญา
       - อัตโนมัติ
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-06
       title: Audit rights
       title_th: สิทธิตรวจสอบเอกสารและบัญชี
@@ -105,6 +119,8 @@ types:
       - accounts
       - ตรวจสอบ
       - บัญชี
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-07
       title: Third-party liability insurance
       title_th: ประกันภัยความรับผิดต่อบุคคลภายนอก
@@ -118,6 +134,8 @@ types:
       - coverage
       - ประกันภัย
       - บุคคลภายนอก
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
   Outsourcing:
     rules:
     - id: P-01
@@ -127,6 +145,8 @@ types:
         VIOLATED if payment terms are less than 30 days.
       if_absent: MISSING
       keywords: *id001
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-02
       title: Limitation of liability cap
       title_th: เพดานความรับผิด
@@ -135,6 +155,8 @@ types:
         fees.
       if_absent: COMPLIANT
       keywords: *id002
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-03
       title: Exclusion from liability cap for willful misconduct or data breach
       title_th: ข้อยกเว้นเพดานความรับผิดกรณีจงใจหรือละเมิดข้อมูล
@@ -142,6 +164,8 @@ types:
         if liability is limited for willful misconduct or data breaches.
       if_absent: COMPLIANT
       keywords: *id003
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-04
       title: Termination for convenience
       title_th: การบอกเลิกสัญญาโดยไม่ต้องมีเหตุ
@@ -150,6 +174,8 @@ types:
         30 days.
       if_absent: MISSING
       keywords: *id004
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-05
       title: Prohibition of automatic renewal
       title_th: ห้ามต่ออายุสัญญาโดยอัตโนมัติ
@@ -157,6 +183,8 @@ types:
         parties. VIOLATED if the contract contains an automatic renewal clause.
       if_absent: COMPLIANT
       keywords: *id005
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-06
       title: Audit rights
       title_th: สิทธิตรวจสอบเอกสารและบัญชี
@@ -165,6 +193,8 @@ types:
         restricted beyond policy terms.
       if_absent: MISSING
       keywords: *id006
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-07
       title: Third-party liability insurance
       title_th: ประกันภัยความรับผิดต่อบุคคลภายนอก
@@ -173,6 +203,8 @@ types:
         Baht or absent when required.
       if_absent: MISSING
       keywords: *id007
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
   Service:
     rules:
     - id: P-01
@@ -182,6 +214,8 @@ types:
         VIOLATED if payment terms are less than 30 days.
       if_absent: MISSING
       keywords: *id001
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-02
       title: Limitation of liability cap
       title_th: เพดานความรับผิด
@@ -190,6 +224,8 @@ types:
         fees.
       if_absent: COMPLIANT
       keywords: *id002
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-03
       title: Exclusion from liability cap for willful misconduct or data breach
       title_th: ข้อยกเว้นเพดานความรับผิดกรณีจงใจหรือละเมิดข้อมูล
@@ -197,6 +233,8 @@ types:
         if liability is limited for willful misconduct or data breaches.
       if_absent: COMPLIANT
       keywords: *id003
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-04
       title: Termination for convenience
       title_th: การบอกเลิกสัญญาโดยไม่ต้องมีเหตุ
@@ -205,6 +243,8 @@ types:
         30 days.
       if_absent: MISSING
       keywords: *id004
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-05
       title: Prohibition of automatic renewal
       title_th: ห้ามต่ออายุสัญญาโดยอัตโนมัติ
@@ -212,6 +252,8 @@ types:
         parties. VIOLATED if the contract contains an automatic renewal clause.
       if_absent: COMPLIANT
       keywords: *id005
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-06
       title: Audit rights
       title_th: สิทธิตรวจสอบเอกสารและบัญชี
@@ -220,6 +262,8 @@ types:
         restricted beyond policy terms.
       if_absent: MISSING
       keywords: *id006
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-07
       title: Third-party liability insurance
       title_th: ประกันภัยความรับผิดต่อบุคคลภายนอก
@@ -228,6 +272,8 @@ types:
         Baht or absent when required.
       if_absent: MISSING
       keywords: *id007
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
   Supply:
     rules:
     - id: P-01
@@ -237,6 +283,8 @@ types:
         VIOLATED if payment terms are less than 30 days.
       if_absent: MISSING
       keywords: *id001
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-02
       title: Limitation of liability cap
       title_th: เพดานความรับผิด
@@ -245,6 +293,8 @@ types:
         fees.
       if_absent: COMPLIANT
       keywords: *id002
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-03
       title: Exclusion from liability cap for willful misconduct or data breach
       title_th: ข้อยกเว้นเพดานความรับผิดกรณีจงใจหรือละเมิดข้อมูล
@@ -252,6 +302,8 @@ types:
         if liability is limited for willful misconduct or data breaches.
       if_absent: COMPLIANT
       keywords: *id003
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-04
       title: Termination for convenience
       title_th: การบอกเลิกสัญญาโดยไม่ต้องมีเหตุ
@@ -260,6 +312,8 @@ types:
         30 days.
       if_absent: MISSING
       keywords: *id004
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-05
       title: Prohibition of automatic renewal
       title_th: ห้ามต่ออายุสัญญาโดยอัตโนมัติ
@@ -267,6 +321,8 @@ types:
         parties. VIOLATED if the contract contains an automatic renewal clause.
       if_absent: COMPLIANT
       keywords: *id005
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-06
       title: Audit rights
       title_th: สิทธิตรวจสอบเอกสารและบัญชี
@@ -275,6 +331,8 @@ types:
         restricted beyond policy terms.
       if_absent: MISSING
       keywords: *id006
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'
     - id: P-07
       title: Third-party liability insurance
       title_th: ประกันภัยความรับผิดต่อบุคคลภายนอก
@@ -283,3 +341,5 @@ types:
         Baht or absent when required.
       if_absent: MISSING
       keywords: *id007
+      origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
+      added: '2026-11-14'

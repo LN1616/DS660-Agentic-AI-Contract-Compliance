@@ -18,8 +18,9 @@ from .trace import Trace
 
 QUOTE_THRESHOLD = 88
 
-SYSTEM = """You are a procurement contract reviewer working for the BUYER (the party that receives the goods or services).
-You check ONE company policy rule at a time against a supplier contract.
+SYSTEM = """You are a contract reviewer working for OUR COMPANY: the party named as "Our company" in the task,
+or, if none is named, the party that receives the goods, services or rights.
+You check ONE company policy rule at a time against the contract.
 
 How to work:
 1. Use search_contract to find clauses about the rule. If results look unrelated, search again with other wording (synonyms, legal terms).
