@@ -107,6 +107,7 @@ h1, h2, h3 { letter-spacing: -0.01em; }
 .cc-how { display:grid; grid-template-columns:30px 1fr; gap:12px; padding:8px 0; border-top:1px solid #eef0f5; }
 .cc-hown { width:28px; height:28px; border-radius:50%; background:#2a54d6; color:#fff; display:grid; place-items:center; font-weight:600; font-size:13px; }
 [data-testid="stSidebar"] [data-testid="stRadio"] [data-testid="stCaptionContainer"] p { font-size: 12px; line-height: 1.4; }
+.cc-tagall { font-size: 11px; color: #6b7184; background: #eef0f5; border-radius: 4px; padding: 1px 6px; }
 </style>
 """
 

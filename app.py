@@ -15,14 +15,15 @@ import streamlit as st
 import yaml
 
 from src import config
-from src.agent import review
+from src.agent import check_rule, review
 from src.baseline import review_single_call
-from src.criteria import (GENERAL, GROUPS_TH, context_line, criteria_for, library_to_yaml, load_library, log_change,
+from src.criteria import (GENERAL, GROUPS_TH, context_line, criteria_for, draft_policy_for_type, library_to_yaml,
+                          group_status, load_library, load_meta, log_change,
                           prefix_for, profile_contract, read_log, renumber, rule_usage, save_library, today, type_label)
 from src.document import ContractDocument
 from src.ingest import extract_pages
 from src.policy import extract_rules, merge_into_library, rules_to_yaml
-from src.report import save, to_frame
+from src.report import excel_bytes, save, to_frame
 from src.trace import Trace
 from eval.offline_check import DEV_SET
 from eval.cuad import available, pdf_path
@@ -105,6 +106,14 @@ TEXT = {
     "hitl": ("การตรวจทานโดยฝ่ายกฎหมาย (human-in-the-loop)", "Legal review (human-in-the-loop)"),
     "r_wait": ("รอ legal อนุมัติ", "Waiting for legal"), "r_ok": ("อนุมัติข้อเสนอแก้ไข", "Approve redline"),
     "r_back": ("ส่งกลับให้ตรวจใหม่", "Send back for re-check"),
+    "hitl_summary": ("ฝ่ายกฎหมาย: อนุมัติ {ok} · ส่งกลับ {back} · รออนุมัติ {wait} (จาก {n} ข้อที่ต้องตรวจทาน) · บันทึกไว้กับผลการตรวจนี้และอยู่ใน Excel",
+                     "Legal: approved {ok} · sent back {back} · waiting {wait} (of {n} items to review) · saved with this review and in the Excel"),
+    "hitl_note": ("เหตุผลที่ส่งกลับ / สิ่งที่ให้ AI ตรวจเพิ่ม", "Why it is sent back / what the AI should check"),
+    "hitl_note_ph": ("เช่น ข้อ 11.2 มีเรื่องกฎหมายที่ใช้บังคับ ให้อ่านข้อนั้น", "e.g. section 11.2 covers governing law, read it"),
+    "recheck_btn": ("ให้ AI ตรวจข้อนี้ใหม่ตามความเห็นนี้", "Re-check this item with the comment"),
+    "rechecking": ("AI กำลังตรวจข้อนี้ใหม่ตามความเห็นของฝ่ายกฎหมาย ...", "The AI is re-checking this item with the legal comment ..."),
+    "rechecked": ("ตรวจใหม่แล้วตามความเห็นของฝ่ายกฎหมาย ({at}): {c} · กรุณาตรวจผลใหม่และอนุมัติ",
+                  "Re-checked with the legal comment ({at}): {c} · please review the new result and approve"),
     "trace_hint": ("หลังวิเคราะห์สัญญา แท็บนี้จะแสดงทุกขั้นที่ agent ทำ: ค้นอะไร อ่านข้อไหน ส่งคำตอบกี่ครั้ง และตัวตรวจซ้ำส่งกลับเพราะอะไร",
                    "After a run, this tab shows every agent step: what it searched, which passages it read, how often it submitted, and why the verifier sent answers back"),
     "loop": ("**วงจรของ agent ต่อกฎ 1 ข้อ:** ค้น (search) → อ่าน (read) → ส่งคำตอบ (submit) → ตัวตรวจซ้ำตรวจด้วยโค้ด → ไม่ผ่านส่งกลับพร้อมเหตุผล · ผ่านเข้ารายงาน",
@@ -127,7 +136,7 @@ TEXT = {
                  "The agent first finds the contract type, then checks **All contracts** rules + that type's rules · "
                  "if a type has no policy yet, the AI writes criteria (ids A-xx) that you can save into the library from the dashboard"),
     "lib_pick": ("เลือกประเภทสัญญาที่จะแก้ไข", "Contract type to edit"),
-    "lib_count": ("{n} ข้อ", "{n} rules"), "lib_none": ("ยังไม่มี · AI จะเขียนเกณฑ์ให้", "none yet · AI writes criteria"),
+    "lib_count": ("{n} ข้อ", "{n} rules"), "lib_none": ("ยังไม่มีนโยบาย · ถ้าตรวจสัญญาประเภทนี้ AI จะเขียนเกณฑ์ให้และบันทึกเป็นร่าง", "No policy yet · when a contract of this type is reviewed, the AI writes criteria and saves them as a draft"),
     "lib_save": ("บันทึกคลังนโยบาย", "Save policy library"), "lib_saved": ("บันทึกแล้ว", "Saved"),
     "lib_dl": ("ดาวน์โหลดคลังนโยบาย (YAML)", "Download library (YAML)"),
     "lib_upload": ("เพิ่มนโยบายจาก PDF: AI แยกเป็นกฎและจัดเข้าประเภทสัญญาให้", "Add a policy PDF: AI extracts rules and files them by contract type"),
@@ -143,8 +152,9 @@ TEXT = {
     "prof_type": ("ประเภทสัญญา", "Contract type"), "prof_us": ("ฝ่ายเรา", "Our company"),
     "prof_them": ("คู่สัญญา", "Other party"),
     "prof_general": ("กฎที่ใช้กับทุกสัญญา {n} ข้อ", "{n} rules for all contracts"),
-    "prof_lib": ("นโยบายของ{type} {n} ข้อ (จากคลังนโยบาย)", "{n} rules from the {type} policy (library)"),
-    "prof_ai": ("คลังยังไม่มีนโยบายสำหรับ{type} AI เขียนเกณฑ์ {n} ข้อ", "No {type} policy in the library: the AI wrote {n} criteria"),
+    "prof_lib": ("นโยบายของ{type} {n} ข้อ", "{type} policy · {n} rules"),
+    "tag_all": ("ทุกสัญญา", "all contracts"),
+    "prof_ai": ("นโยบายของ{type} {n} ข้อ (AI เขียนให้ เพราะคลังยังไม่มีนโยบายของประเภทนี้)", "{type} policy · {n} rules (written by AI: no policy for this type yet)"),
     "prof_ai_note": ("เกณฑ์ A-xx ไม่ได้มาจากนโยบายบริษัท ฝ่ายกฎหมายควรตรวจก่อนบันทึกเป็นนโยบาย",
                      "A-xx criteria are not company policy yet. Legal should review them before saving"),
     "prof_save": ("บันทึกเกณฑ์เหล่านี้เป็นนโยบายของ{type}", "Save these criteria as the {type} policy"),
@@ -171,8 +181,32 @@ TEXT = {
     "lib_confirmed": ("ยืนยันแล้ว", "Confirmed"),
     "prof_drafted": ("บันทึกเกณฑ์เหล่านี้เป็นร่างนโยบายของ{type}ในคลังแล้ว สัญญาประเภทนี้ครั้งถัดไปจะใช้ร่างนี้ · ตรวจ แก้ และยืนยันได้ที่แท็บนโยบายบริษัท",
                      "These criteria were saved as a draft {type} policy. The next contract of this type uses it · review, edit and confirm in the Company policy tab"),
-    "prof_lib_draft": ("นโยบายของ{type} {n} ข้อ (ร่างจาก AI ยังไม่ยืนยัน)", "{n} rules from the {type} policy (AI draft, not confirmed)"),
+    "prof_lib_draft": ("นโยบายของ{type} {n} ข้อ (ร่างจาก AI ยังไม่ยืนยัน)", "{type} policy · {n} rules (AI draft, not confirmed)"),
     "go_review": ("ตรวจและยืนยันนโยบาย →", "Review and confirm the policy →"),
+    "how_title": ("คลังนโยบายทำงานอย่างไร", "How the policy library works"),
+    "how_steps": ("Agent ระบุประเภทของสัญญาก่อน แล้วตรวจด้วยกฎ <b>ใช้กับทุกสัญญา</b> + นโยบายของประเภทนั้น|"
+                  "นโยบายมาได้ 3 ทาง: นำเข้าจาก PDF นโยบายบริษัท · AI ร่างให้ (ติดป้ายร่าง AI) · แก้หรือเพิ่มเองในตาราง|"
+                  "ฝ่ายกฎหมายตรวจแล้วกดยืนยัน ระบบเก็บชื่อผู้ยืนยัน วันที่ และเวอร์ชัน · แก้หลังยืนยันจะขึ้นเวอร์ชันใหม่และรอยืนยันอีกครั้ง",
+                  "The agent first finds the contract type, then checks the <b>all contracts</b> rules + that type's policy|"
+                  "Policies come from: a company policy PDF · AI drafts (tagged AI draft) · your own edits in the table|"
+                  "Legal reviews and confirms; the name, date and version are recorded · edits after confirmation create a new version to confirm again"),
+    "tb_title": ("สถานะนโยบายแต่ละประเภท", "Policy status by contract type"),
+    "tb_hint": ("คลิกแถวเพื่อเปิดแก้ไขด้านล่าง", "Click a row to edit it below"),
+    "tb_type": ("ประเภทสัญญา", "Contract type"), "tb_rules": ("กฎ", "Rules"), "tb_status": ("สถานะ", "Status"),
+    "tb_version": ("เวอร์ชัน", "Version"), "tb_updated": ("แก้ไขล่าสุด", "Last updated"),
+    "tb_by": ("ยืนยันโดย", "Confirmed by"), "tb_when": ("วันที่ยืนยัน", "Confirmed on"), "tb_used": ("ใช้ตรวจ (ฉบับ)", "Contracts"),
+    "stt_none": ("– ยังไม่มี", "– none"), "stt_draft": ("ร่าง AI · รอยืนยัน", "AI draft · pending"),
+    "stt_confirmed": ("✓ ยืนยันแล้ว", "✓ confirmed"), "stt_changed": ("แก้หลังยืนยัน · รอยืนยันใหม่", "edited · re-confirm"),
+    "stt_unconfirmed": ("ยังไม่ได้ยืนยัน", "not confirmed"),
+    "stt_changed_note": ("นโยบายนี้ถูกแก้หลังการยืนยันครั้งล่าสุด · ตรวจแล้วกดยืนยันเวอร์ชันใหม่", "This policy changed after its last confirmation · review and confirm the new version"),
+    "stt_unconfirmed_note": ("นโยบายนี้ยังไม่มีผู้ยืนยัน", "Nobody has confirmed this policy yet"),
+    "confirm_by": ("ชื่อผู้ยืนยัน", "Confirmed by"), "confirm_by_default": ("ฝ่ายกฎหมาย", "Legal team"),
+    "fill_all": ("ให้ AI ร่างนโยบายให้ทุกประเภทที่ยังว่าง ({n} ประเภท)", "Let AI draft a policy for every empty type ({n} types)"),
+    "fill_one": ("ให้ AI ร่างนโยบายสำหรับ{type}", "Let AI draft a {type} policy"),
+    "filling": ("AI กำลังร่างนโยบายของ{type} ({i}/{n}) ...", "AI is drafting the {type} policy ({i}/{n}) ..."),
+    "prof_not_in_lib": ("เกณฑ์ของ{type}จากการตรวจครั้งนี้ยังไม่อยู่ในคลัง (ตรวจก่อนมีการบันทึกอัตโนมัติ หรือคลังถูกรีเซ็ตเมื่อแอปรีสตาร์ท)",
+                        "The {type} criteria from this review are not in the library (reviewed before auto-save, or the library reset when the app restarted)"),
+    "save_and_review": ("บันทึกเป็นร่างแล้วไปตรวจ →", "Save as draft and review →"),
 }
 
 st.session_state.setdefault("lang", "th")
@@ -325,15 +359,14 @@ TEXT.update({
     "tab_port": ("② สัญญาทั้งหมด", "② Portfolio"),
     "tab_policy4": ("④ นโยบายบริษัท", "④ Company policy"),
     "ws_title": ("สัญญาและข้อค้นพบ", "Contract and findings"),
-    "vd_block": ("ไม่ควรลงนามในสภาพนี้", "Do not sign as it stands"),
-    "vd_block_sub": ("ข้อเสี่ยงสูงที่ต้องแก้ก่อนลงนาม {n} ข้อ · ไม่ตรงนโยบายทั้งหมด {m} ข้อ",
-                     "{n} high-risk issues must be fixed before signing · {m} issues in total"),
-    "vd_warn": ("ลงนามได้หลังเจรจาแก้ไข", "Sign after negotiating changes"),
-    "vd_warn_sub": ("ไม่ตรงนโยบาย {n} ข้อ ไม่มีข้อเสี่ยงสูงที่ขัดหรือขาดหาย", "{n} issues, none high-risk violated or missing"),
-    "vd_ok": ("ลงนามได้", "OK to sign"), "vd_ok_sub": ("ทุกข้อเป็นไปตามนโยบาย", "Every rule is met"),
-    "vd_unver": ("ตัวตรวจซ้ำยืนยันไม่ได้ {n} ข้อ ต้องให้คนตรวจ", "{n} not confirmed by the verifier, a person must check"),
-    "vd_fix": ("สิ่งที่ต้องแก้ เรียงจากเสี่ยงมากไปน้อย", "What to fix, most severe first"),
-    "vd_more": ("และอีก {n} ข้อ ดูในตารางด้านล่าง", "and {n} more in the table below"),
+    "vd_block": ("ไม่แนะนำให้ลงนามจนกว่าจะแก้ไข", "Not recommended for signature until revised"),
+    "vd_block_sub": ("พบประเด็นความเสี่ยงสูงที่ต้องแก้ไขก่อนลงนาม {n} ข้อ จากประเด็นที่ไม่สอดคล้องกับนโยบายทั้งหมด {m} ข้อ", "{n} high-risk issues must be resolved before signing, out of {m} issues in total"),
+    "vd_warn": ("ลงนามได้ภายหลังการเจรจาแก้ไข", "May be signed after negotiated revisions"),
+    "vd_warn_sub": ("พบประเด็นที่ไม่สอดคล้องกับนโยบาย {n} ข้อ โดยไม่มีประเด็นความเสี่ยงสูงที่ขัดหรือขาดหาย", "{n} issues found, none of them high-risk violations or missing clauses"),
+    "vd_ok": ("สามารถลงนามได้", "May be signed"), "vd_ok_sub": ("ทุกข้อสอดคล้องกับนโยบายของบริษัท", "All rules comply with company policy"),
+    "vd_unver": ("มี {n} ข้อที่ตัวตรวจซ้ำยืนยันข้อความไม่ได้ ควรให้เจ้าหน้าที่ตรวจสอบ", "{n} items could not be confirmed by the verifier and should be checked by staff"),
+    "vd_fix": ("ประเด็นที่ต้องแก้ไข เรียงตามระดับความเสี่ยง", "Issues to resolve, by risk level"),
+    "vd_more": ("และอีก {n} ข้อ ดูได้ในตารางด้านล่าง", "{n} more in the table below"),
     "summary_ai": ("สรุปสำหรับผู้บริหาร (เขียนโดย AI)", "Executive summary (written by AI)"),
     "run_meta": ("{mode} · {s} วินาที · {calls} AI calls · {tok} tokens · ต้นทุน ${cost} · {model}",
                  "{mode} · {s} s · {calls} AI calls · {tok} tokens · cost ${cost} · {model}"),
@@ -446,7 +479,44 @@ def load_saved(fp: Path) -> dict | None:
             "seconds": meta.get("seconds", sum(x.get("sec", 0) for x in records if x["type"] == "llm")),
             "lang": meta.get("lang", "th"), "pdf": pdf,
             "profile": meta.get("profile"), "criteria": meta.get("criteria") or [], "origin": meta.get("origin", ""),
+            "path": str(fp), "hitl": meta.get("hitl") or {},
             "n_pages": meta.get("n_pages") or (len(pymupdf.open(pdf)) if pdf else 1)}
+
+
+def save_hitl(res: dict, pid: str, decision: str, comment: str = "") -> None:
+    """Store a legal decision with the saved run, so it survives reopening and goes into the Excel."""
+    meta_fp = Path(res["path"]).with_name(Path(res["path"]).stem + ".meta.json")
+    meta = json.loads(meta_fp.read_text(encoding="utf-8")) if meta_fp.exists() else {}
+    meta.setdefault("hitl", {})[pid] = {"decision": decision, "comment": comment,
+                                        "at": time.strftime("%Y-%m-%d %H:%M")}
+    meta_fp.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    res["hitl"] = meta["hitl"]
+
+
+def on_decision(pid: str) -> None:
+    res_ = st.session_state.get("result")
+    if res_ and res_.get("path"):
+        save_hitl(res_, pid, st.session_state[f"hitl_{pid}"], st.session_state.get(f"hitl_note_{pid}", ""))
+
+
+def recheck_rule(res: dict, pid: str, comment: str) -> None:
+    """Send one finding back: the agent checks that rule again, with the legal reviewer's comment as guidance."""
+    rule = next((c for c in res.get("criteria", []) if c.get("id") == pid and c.get("text")), None)
+    if rule is None or not res.get("pdf"):
+        raise ValueError("rule or PDF not available for this run")
+    doc = ContractDocument(Path(res["pdf"]).stem, extract_pages(Path(res["pdf"]), use_vision=False))
+    prof = res.get("profile")
+    context = ((f"Contract type: {prof['contract_type']}. Our company: {prof['our_party']}. "
+                f"Other party: {prof['counterparty']}.\n") if prof else "")
+    context += f"Our legal reviewer sent the previous answer back with this comment, follow it: {comment}"
+    trace = Trace(f"recheck_{pid}_{time.strftime('%m%d-%H%M%S')}")
+    new = check_rule(rule, doc, trace, res.get("lang", "th"), context=context)
+    trace.save()
+    report = res["report"]
+    report.findings = [new if x.finding.policy_id == pid else x for x in report.findings]
+    fp = Path(res["path"])
+    save(report, fp.parent, fp.stem)
+    save_hitl(res, pid, "rechecked", comment)
 
 
 if "demo" in st.query_params and "result" not in st.session_state:
@@ -461,7 +531,8 @@ res = None  # set after a run or from session
 # ================= header with progress =================
 _res = st.session_state.get("result")
 _legal_done = bool(_res) and all(
-    st.session_state.get(f"hitl_{r.finding.policy_id}") == "r_ok"
+    st.session_state.get(f"hitl_{r.finding.policy_id}",
+                         (_res.get("hitl") or {}).get(r.finding.policy_id, {}).get("decision")) == "r_ok"
     for r in _res["report"].findings if r.finding.risk_level == "HIGH" or not r.verified)
 _steps = [(t("st_policy"), "done" if n_rules else "now"),
           (t("st_contract"), "done" if _res else ("now" if n_rules else "")),
@@ -588,30 +659,85 @@ def rules_editor(df: pd.DataFrame, key: str) -> pd.DataFrame:
 
 if view == "policy" and auto:
     st.subheader(t("lib_title"))
-    st.caption(t("lib_help"))
     lib_now = current_library()
     _lang = st.session_state.lang
-    chips = "".join(
-        f"<span class='cc-pill{' on' if lib_now.get(g) else ''}{' draft' if any(r.get('draft') for r in lib_now.get(g, [])) else ''}'>"
-        f"{ui.esc(type_label(g, _lang))} · "
-        f"{t('lib_count', n=len(lib_now[g])) if lib_now.get(g) else '–'}"
-        f"{' · ' + t('col_draft') if any(r.get('draft') for r in lib_now.get(g, [])) else ''}</span>" for g in GROUPS_TH)
-    st.html(f"<div class='cc-pills'>{chips}</div>")
+    st.html("<div class='cc-card'><div class='cc-label' style='margin-bottom:6px'>" + t("how_title") + "</div>"
+            + "".join(f"<div class='cc-how'><div class='cc-hown'>{i}</div><div class='cc-muted'>{x}</div></div>"
+                      for i, x in enumerate(t("how_steps").split("|"), 1)) + "</div>")
+    meta_all = load_meta()
+    runs_by_type = {}
+    for _m in config.OUTPUT_DIR.glob("*.meta.json"):
+        try:
+            _ct = (json.loads(_m.read_text(encoding="utf-8")).get("profile") or {}).get("contract_type")
+        except Exception:
+            _ct = None
+        if _ct:
+            runs_by_type[_ct] = runs_by_type.get(_ct, 0) + 1
+    status_txt = {"none": t("stt_none"), "draft": t("stt_draft"), "confirmed": t("stt_confirmed"),
+                  "changed": t("stt_changed"), "unconfirmed": t("stt_unconfirmed")}
+    groups = list(GROUPS_TH)
+    table = pd.DataFrame([{
+        t("tb_type"): type_label(g, _lang), t("tb_rules"): len(lib_now.get(g, [])),
+        t("tb_status"): status_txt[group_status(lib_now.get(g, []), meta_all.get(g, {}))],
+        t("tb_version"): (f"v{meta_all[g]['version']}" if g in meta_all and lib_now.get(g) else "–"),
+        t("tb_updated"): meta_all.get(g, {}).get("updated", "–") if lib_now.get(g) else "–",
+        t("tb_by"): meta_all.get(g, {}).get("confirmed_by", "–"),
+        t("tb_when"): (meta_all[g].get("confirmed_at", "–") + (f" (v{meta_all[g]['confirmed_version']})"
+                       if meta_all[g].get("confirmed_version") else "")) if g in meta_all and meta_all[g].get("confirmed_at") else "–",
+        t("tb_used"): runs_by_type.get(g, 0) if g != GENERAL else sum(runs_by_type.values()),
+    } for g in groups])
+    st.markdown(f"**{t('tb_title')}**")
+    st.caption(t("tb_hint"))
+    st.session_state.setdefault("libtab_ver", 0)
+    ev = st.dataframe(table, hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
+                      key=f"libtab_{st.session_state.libtab_ver}", height=min(36 * (len(groups) + 1), 420))
+    if ev and ev.selection and ev.selection.rows:
+        st.session_state["choice_lib_group"] = groups[ev.selection.rows[0]]
+        for _k in ("lib_group_th", "lib_group_en"):
+            st.session_state.pop(_k, None)
+        st.session_state.libtab_ver += 1
+        st.rerun()
+    empty = [g for g in GROUPS_TH if g not in (GENERAL, "Other") and not lib_now.get(g)]
+    if empty and st.button(t("fill_all", n=len(empty))):
+        bar = st.progress(0.0)
+        lib = current_library()
+        tr = Trace(f"policy_drafts_{time.strftime('%m%d-%H%M%S')}")
+        for i, g in enumerate(empty, 1):
+            bar.progress(i / len(empty), text=t("filling", type=type_label(g, _lang), i=i, n=len(empty)))
+            try:
+                lib[g] = draft_policy_for_type(g, lib, tr, _lang)
+                log_change("ai_draft", g, f"{len(lib[g])} ข้อ · ร่างล่วงหน้า")
+            except Exception as e:
+                st.warning(f"{type_label(g, _lang)}: {type(e).__name__}")
+        save_library(lib)
+        reset_library_tables(lib)
+        st.rerun()
     st.markdown(f"**{t('lib_pick')}**")
     group = pick(st.selectbox, "lib_group", list(GROUPS_TH), format_func=(lambda g, _l=_lang: type_label(g, _l)),
                  label_visibility="collapsed")
     if not lib_now.get(group):
-        st.caption(t("lib_none"))
+        e1, e2 = st.columns([3, 1], vertical_alignment="center")
+        e1.caption(t("lib_none"))
+        if group != GENERAL and e2.button(t("fill_one", type=type_label(group, _lang)), width="stretch"):
+            with st.spinner(t("filling", type=type_label(group, _lang), i=1, n=1)):
+                lib = current_library()
+                lib[group] = draft_policy_for_type(group, lib, Trace("policy_draft"), _lang)
+                log_change("ai_draft", group, f"{len(lib[group])} ข้อ · ร่างล่วงหน้า")
+                save_library(lib)
+                reset_library_tables(lib)
+            st.rerun()
     n_draft = sum(bool(r.get("draft")) for r in lib_now.get(group, []))
-    if n_draft:
-        n1, n2 = st.columns([3, 1], vertical_alignment="center")
-        n1.warning(t("lib_draft_note", n=n_draft))
-        if n2.button(t("lib_confirm"), width="stretch"):
+    g_status = group_status(lib_now.get(group, []), meta_all.get(group, {}))
+    if g_status in ("draft", "changed", "unconfirmed"):
+        n1, n2, n3 = st.columns([3, 1.3, 1], vertical_alignment="bottom")
+        n1.warning(t("lib_draft_note", n=n_draft) if n_draft else t(f"stt_{g_status}_note"))
+        by = n2.text_input(t("confirm_by"), value=t("confirm_by_default"), key=f"confirm_by_{group}")
+        if n3.button(t("lib_confirm"), width="stretch", disabled=not by.strip()):
             lib = current_library()
             lib[group] = [{k: v for k, v in r.items() if k != "draft"} for r in lib.get(group, [])]
             lib = {g: renumber(v, prefix_for(g)) for g, v in lib.items()}
-            save_library(lib)
-            log_change("confirm", group, f"{len(lib.get(group, []))} ข้อ")
+            save_library(lib, confirm=(group, by.strip()))
+            log_change("confirm", group, f"{len(lib.get(group, []))} ข้อ · v{load_meta().get(group, {}).get('version', 1)} · โดย {by.strip()}")
             reset_library_tables(lib)
             st.toast(t("lib_confirmed"))
             st.rerun()
@@ -865,12 +991,14 @@ if view == "dash":
             crit = res.get("criteria", [])
             gen = [x for x in crit if x.get("source") == "general"]
             spec = [x for x in crit if x.get("source") in ("library", "ai")]
-            items = lambda xs, note: "".join(
+            items = lambda xs, note, tag="": "".join(
                 f"<li><b>{ui.esc(x['id'])}</b> {ui.esc(name(x))}"
+                + (f" <span class='cc-tagall'>{tag}</span>" if tag else "")
                 + (f" — <span class='cc-muted'>{ui.esc(x.get('why') or '')}</span>" if note else "") + "</li>" for x in xs)
-            spec_head = (t("prof_ai", type=tname, n=len(spec)) if res.get("origin") == "ai"
-                         else t("prof_lib_draft", type=tname, n=len(spec)) if any(x.get("draft") for x in spec)
-                         else t("prof_lib", type=tname, n=len(spec)))
+            n_all = len(spec) + len(gen)
+            spec_head = (t("prof_ai", type=tname, n=n_all) if res.get("origin") == "ai"
+                         else t("prof_lib_draft", type=tname, n=n_all) if any(x.get("draft") for x in spec)
+                         else t("prof_lib", type=tname, n=n_all))
             st.html(
                 f"<div class='cc-card'><div class='cc-label'>{t('prof_title')}</div>"
                 f"<div style='display:flex;flex-wrap:wrap;gap:6px 28px;margin:6px 0 4px'>"
@@ -878,16 +1006,34 @@ if view == "dash":
                 f"<div><span class='cc-muted'>{t('prof_us')}</span><br><b>{ui.esc(prof['our_party'])}</b></div>"
                 f"<div><span class='cc-muted'>{t('prof_them')}</span><br><b>{ui.esc(prof['counterparty'])}</b></div></div>"
                 f"<div class='cc-muted' style='margin-bottom:8px'>{ui.esc(prof['subject'])}</div>"
-                f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 24px'>"
-                f"<div><b>{t('prof_general', n=len(gen))}</b><ul style='margin:4px 0'>{items(gen, False)}</ul></div>"
-                f"<div><b>{spec_head}</b><ul style='margin:4px 0'>{items(spec, res.get('origin') == 'ai')}</ul>"
+                f"<div><b>{spec_head}</b><ul style='margin:4px 0;columns:2 340px;column-gap:28px'>"
+                f"{items(spec, res.get('origin') == 'ai')}{items(gen, False, t('tag_all'))}</ul>"
                 + (f"<div class='cc-muted'>{t('prof_ai_note')}</div>" if res.get("origin") == "ai" else "")
-                + "</div></div></div>")
+                + "</div></div>")
             if res.get("origin") == "ai" or any(x.get("draft") for x in spec):
+                in_library = bool(current_library().get(ctype))
                 d1, d2 = st.columns([3, 1], vertical_alignment="center")
-                d1.info(t("prof_drafted", type=tname) if res.get("origin") == "ai" else t("lib_draft_note", n=len(spec)))
-                if d2.button(t("go_review"), width="stretch"):
-                    st.session_state[f"choice_lib_group"] = ctype
+                if in_library:
+                    d1.info(t("prof_drafted", type=tname) if res.get("origin") == "ai" else t("lib_draft_note", n=len(spec)))
+                    go = d2.button(t("go_review"), width="stretch")
+                else:
+                    # e.g. a run from before auto-save, or the cloud app restarted and reset the library
+                    d1.warning(t("prof_not_in_lib", type=tname))
+                    go = d2.button(t("save_and_review"), type="primary", width="stretch")
+                    if go:
+                        lib = current_library()
+                        src_name = res["report"].contract_title.split("-EX-")[0][:40]
+                        lib[ctype] = renumber(
+                            [{k: x[k] for k in ("title", "title_th", "text", "if_absent", "keywords") if k in x}
+                             | {"draft": True, "origin": f"AI ร่างจากสัญญา {src_name}", "added": today()} for x in spec],
+                            prefix_for(ctype))
+                        save_library(lib)
+                        reset_library_tables(lib)
+                        log_change("ai_draft", ctype, f"{len(spec)} ข้อ จากสัญญา {src_name} (บันทึกจากแดชบอร์ด)")
+                if go:
+                    st.session_state["choice_lib_group"] = ctype
+                    for _k in ("lib_group_th", "lib_group_en"):  # let pick() re-create the dropdown on this type
+                        st.session_state.pop(_k, None)
                     st.session_state.goto = "policy"
                     st.rerun()
 
@@ -926,7 +1072,7 @@ if view == "dash":
         st.subheader(t("findings"))
         f1, f2 = st.columns([3, 1])
         show = f1.multiselect(t("filter"), list(STATUS_COLOR), default=list(STATUS_COLOR))
-        f2.download_button(t("dl_xlsx"), res["xlsx"], res["xlsx_name"], width="stretch")
+        f2.download_button(t("dl_xlsx"), excel_bytes(res["report"], res.get("hitl")), res["xlsx_name"], width="stretch")
         rows = "".join(
             f"<tr><td><b>{ui.esc(r.finding.policy_id)}</b></td><td>{ui.esc(r.finding.clause_category)}"
             f"{' <span class=cc-muted>· ' + t('ai_tag') + '</span>' if r.finding.policy_id in ai_ids else ''}</td>"
@@ -938,6 +1084,15 @@ if view == "dash":
                 f"<th>{t('t_status')}</th><th>{t('t_risk')}</th><th>{t('t_ref')}</th><th>{t('t_ver')}</th></tr>{rows}</table></div>")
 
         st.subheader(t("details"))
+        need = [r.finding.policy_id for r in findings if r.finding.risk_level == "HIGH" or not r.verified]
+        for pid in need:  # restore saved decisions before the widgets are created
+            saved = (res.get("hitl") or {}).get(pid, {})
+            if f"hitl_{pid}" not in st.session_state and saved:
+                st.session_state[f"hitl_{pid}"] = "r_wait" if saved["decision"] == "rechecked" else saved["decision"]
+                st.session_state[f"hitl_note_{pid}"] = saved.get("comment", "")
+        dec = [st.session_state.get(f"hitl_{pid}", "r_wait") for pid in need]
+        if need:
+            st.info(t("hitl_summary", ok=dec.count("r_ok"), back=dec.count("r_back"), wait=dec.count("r_wait"), n=len(need)))
         for r in findings:
             f = r.finding
             if f.compliance_status not in show:
@@ -962,8 +1117,27 @@ if view == "dash":
                         st.markdown(f"**{t('redline')}**")
                         st.code(f.suggested_redline, language=None, wrap_lines=True)
                     if f.risk_level == "HIGH" or not r.verified:
+                        pid = f.policy_id
+                        saved = (res.get("hitl") or {}).get(pid, {})
+                        if saved.get("decision") == "rechecked":
+                            st.success(t("rechecked", at=saved.get("at", ""), c=saved.get("comment", "")))
                         st.radio(t("hitl"), ["r_wait", "r_ok", "r_back"], format_func=label_fn(st.session_state.lang),
-                                 horizontal=True, key=f"hitl_{f.policy_id}")
+                                 horizontal=True, key=f"hitl_{pid}", on_change=on_decision, args=(pid,))
+                        if st.session_state.get(f"hitl_{pid}") == "r_back":
+                            st.text_area(t("hitl_note"), key=f"hitl_note_{pid}", placeholder=t("hitl_note_ph"),
+                                         on_change=on_decision, args=(pid,))
+                            if st.button(t("recheck_btn"), key=f"recheck_{pid}", type="primary",
+                                         disabled=not st.session_state.get(f"hitl_note_{pid}", "").strip()):
+                                with st.spinner(t("rechecking")):
+                                    try:
+                                        recheck_rule(res, pid, st.session_state[f"hitl_note_{pid}"])
+                                    except Exception as e:
+                                        st.error(f"{type(e).__name__}: {str(e)[:200]}")
+                                        st.stop()
+                                st.session_state.result = load_saved(Path(res["path"]))
+                                for k in (f"hitl_{pid}", f"hitl_note_{pid}"):
+                                    st.session_state.pop(k, None)
+                                st.rerun()
 
 # ================= tab 4: agent trace =================
 if view == "trace":

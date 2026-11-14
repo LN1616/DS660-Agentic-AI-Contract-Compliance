@@ -57,13 +57,48 @@ def load_library(path: Path = LIBRARY_PATH) -> dict[str, list[dict]]:
     return {k: v.get("rules", []) for k, v in (data.get("types") or {}).items() if k in GROUPS_TH}
 
 
-def library_to_yaml(lib: dict[str, list[dict]]) -> str:
+def load_meta(path: Path = LIBRARY_PATH) -> dict[str, dict]:
+    """Per contract type: version, last update, and who confirmed which version when."""
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return {k: v for k, v in (data.get("meta") or {}).items() if k in GROUPS_TH}
+
+
+def library_to_yaml(lib: dict[str, list[dict]], meta: dict[str, dict] | None = None) -> str:
     order = [g for g in GROUPS_TH if lib.get(g)]
-    return yaml.safe_dump({"types": {g: {"rules": lib[g]} for g in order}}, allow_unicode=True, sort_keys=False, width=100)
+    meta = meta if meta is not None else load_meta()
+    return yaml.safe_dump({"types": {g: {"rules": lib[g]} for g in order},
+                           "meta": {g: meta[g] for g in GROUPS_TH if g in meta}},
+                          allow_unicode=True, sort_keys=False, width=100)
 
 
-def save_library(lib: dict[str, list[dict]], path: Path = LIBRARY_PATH) -> None:
-    path.write_text(library_to_yaml(lib), encoding="utf-8")
+def save_library(lib: dict[str, list[dict]], path: Path = LIBRARY_PATH,
+                 confirm: tuple[str, str] | None = None) -> None:
+    """Save the library. A type whose rules changed gets version + 1; confirm=(type, by) records an approval."""
+    old, meta = load_library(path), load_meta(path)
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    for g in set(lib) | set(old):
+        if lib.get(g) != old.get(g):
+            m = meta.setdefault(g, {"version": 0})
+            m["version"] = m.get("version", 0) + 1
+            m["updated"] = now
+    if confirm:
+        g, by = confirm
+        m = meta.setdefault(g, {"version": 1, "updated": now})
+        m.update(confirmed_at=now, confirmed_by=by, confirmed_version=m.get("version", 1))
+    path.write_text(library_to_yaml(lib, meta), encoding="utf-8")
+
+
+def group_status(rules: list[dict], meta: dict) -> str:
+    """none / draft / confirmed / changed (edited after the last confirmation) / unconfirmed."""
+    if not rules:
+        return "none"
+    if any(r.get("draft") for r in rules):
+        return "draft"
+    if meta.get("confirmed_version") is None:
+        return "unconfirmed"
+    return "confirmed" if meta.get("confirmed_version") == meta.get("version") else "changed"
 
 
 # ---------- track record: where each rule came from, and what changed when ----------
@@ -203,6 +238,18 @@ def generate_criteria(profile: ContractProfile, general: list[dict], trace: Trac
              "if_absent": "COMPLIANT" if c.if_absent.upper().startswith("COMPLIANT") else "MISSING",
              "keywords": c.keywords, "why": c.why, "source": "ai"}
             for i, c in enumerate(parsed.criteria[:n], 1)]
+
+
+PREMADE = "AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)"
+
+
+def draft_policy_for_type(ctype: str, lib: dict[str, list[dict]], trace: Trace, lang: str = "th") -> list[dict]:
+    """A starter policy for a contract type that has none: AI-written, saved as a draft for a person to confirm."""
+    generic = ContractProfile(contract_type=ctype, subject=f"a typical {ctype} contract",
+                              our_party="our company", counterparty="the other party")
+    rules = generate_criteria(generic, lib.get(GENERAL, []), trace, lang)
+    return renumber([{k: r[k] for k in ("title", "title_th", "text", "if_absent", "keywords")}
+                     | {"draft": True, "origin": PREMADE, "added": today()} for r in rules], prefix_for(ctype))
 
 
 def criteria_for(profile: ContractProfile, lib: dict[str, list[dict]], trace: Trace,

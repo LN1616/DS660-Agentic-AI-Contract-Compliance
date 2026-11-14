@@ -31,6 +31,1272 @@ types:
       - ศาลไทย
       origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
       added: '2026-11-14'
+  Affiliate:
+    rules:
+    - title: Commission Calculation and Payment Terms
+      title_th: การคำนวณค่าคอมมิชชันและเงื่อนไขการชำระเงิน
+      text: The agreement must clearly define the exact commission rates, calculation methods, qualifying
+        transactions, and payment schedules, including any invoicing requirements and tax deductions.
+      if_absent: MISSING
+      keywords:
+      - commission
+      - payment
+      - calculation
+      - rate
+      - invoice
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Termination Rights and Post-Termination Commissions
+      title_th: สิทธิการเลิกสัญญาและค่าคอมมิชชันหลังสิ้นสุดสัญญา
+      text: Either party must have the right to terminate the agreement for convenience with reasonable
+        notice, and the contract must specify whether commissions continue to accrue for leads generated
+        prior to termination.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - notice
+      - post-termination
+      - expire
+      - convenience
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Intellectual Property and Brand Usage Guidelines
+      title_th: ทรัพย์สินทางปัญญาและแนวทางการใช้เครื่องหมายการค้า
+      text: The affiliate must be granted a limited, non-exclusive, revocable license to use company trademarks
+        and marketing materials solely for promotional purposes, prohibiting any unauthorized modifications
+        or damaging associations.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - trademark
+      - license
+      - brand
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Compliance and Prohibited Marketing Practices
+      title_th: การปฏิบัติตามกฎระเบียบและแนวทางการตลาดที่ห้ามกระทำ
+      text: The affiliate must comply with all applicable laws, consumer protection regulations, and anti-spam
+        laws, while explicitly prohibiting misleading advertising, trademark bidding on search engines,
+        and unauthorized spam.
+      if_absent: MISSING
+      keywords:
+      - compliance
+      - prohibited
+      - marketing
+      - spam
+      - advertising
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Limitation of Liability and Indemnification
+      title_th: การจำกัดความรับผิดและการชดใช้ค่าเสียหาย
+      text: The contract must include mutual or company-favorable limitations on indirect damages and
+        require the affiliate to indemnify the company against third-party claims arising from the affiliate's
+        breach or promotional methods.
+      if_absent: MISSING
+      keywords:
+      - liability
+      - indemnification
+      - indemnity
+      - damages
+      - claims
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Confidentiality and Data Security Standards
+      title_th: การรักษาความลับและมาตรฐานความปลอดภัยของข้อมูล
+      text: The affiliate must maintain strict confidentiality regarding proprietary business information,
+        customer lists, and performance metrics obtained during the partnership, prohibiting unauthorized
+        disclosure or use.
+      if_absent: MISSING
+      keywords:
+      - confidentiality
+      - confidential
+      - proprietary
+      - disclosure
+      - security
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Agency:
+    rules:
+    - title: Scope of Agency Services
+      title_th: ขอบเขตการให้บริการเป็นตัวแทน
+      text: The contract must clearly define the specific services, duties, and authority of the agent,
+        including any limitations on binding our company to third-party agreements.
+      if_absent: MISSING
+      keywords:
+      - services
+      - duties
+      - authority
+      - scope
+      - obligation
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Compensation and Payment Terms
+      title_th: ค่าตอบแทนและเงื่อนไขการชำระเงิน
+      text: The contract must explicitly state the commission structure, fees, reimbursable expenses,
+        invoicing procedures, and payment schedules.
+      if_absent: MISSING
+      keywords:
+      - commission
+      - compensation
+      - fees
+      - invoice
+      - payment
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Termination Rights
+      title_th: สิทธิในการเลิกสัญญา
+      text: The contract must provide clear conditions for termination, including termination for convenience
+        with reasonable notice and termination for cause due to material breach.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - notice
+      - breach
+      - expire
+      - cancel
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Intellectual Property Rights
+      title_th: สิทธิในทรัพย์สินทางปัญญา
+      text: All intellectual property created, developed, or used in connection with the agency services
+        must explicitly belong to our company, protecting our brand and proprietary assets.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - trademark
+      - ownership
+      - license
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Confidentiality and Non-Disclosure
+      title_th: การรักษาความลับและการไม่เปิดเผยข้อมูล
+      text: The contract must include strict confidentiality obligations protecting our business information,
+        customer lists, and trade secrets, extending beyond the termination of the agreement.
+      if_absent: MISSING
+      keywords:
+      - confidentiality
+      - disclosure
+      - secret
+      - proprietary
+      - information
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Indemnification and Liability
+      title_th: การชดใช้ค่าเสียหายและความรับผิด
+      text: The agent must indemnify our company against any losses, claims, or damages arising from the
+        agent's negligence, willful misconduct, or breach of contract.
+      if_absent: MISSING
+      keywords:
+      - indemnify
+      - liability
+      - damages
+      - claims
+      - losses
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Co-Branding:
+    rules:
+    - title: Trademark Usage and License Scope
+      title_th: ขอบเขตการอนุญาตและการใช้เครื่องหมายการค้า
+      text: The contract must clearly define the permitted scope, manner, media, and duration for using
+        each party's trademarks, logos, and brand assets, strictly prohibiting any unauthorized use or
+        sub-licensing.
+      if_absent: MISSING
+      keywords:
+      - trademark
+      - license
+      - brand
+      - logo
+      - intellectual property
+      - scope
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Revenue Sharing and Financial Terms
+      title_th: การแบ่งปันรายได้และเงื่อนไขทางการเงิน
+      text: The agreement must explicitly detail the calculation methodology, currency, payment schedules,
+        invoicing procedures, and auditing rights regarding any shared revenues, royalties, or joint marketing
+        costs.
+      if_absent: MISSING
+      keywords:
+      - revenue
+      - royalty
+      - payment
+      - fee
+      - audit
+      - financial
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Brand Approval and Quality Control
+      title_th: การควบคุมคุณภาพและการอนุมัติสื่อประชาสัมพันธ์
+      text: Both parties must retain mutual approval rights over all joint marketing materials, product
+        designs, press releases, and public communications bearing both brands to ensure brand alignment
+        and quality standards.
+      if_absent: MISSING
+      keywords:
+      - approval
+      - quality control
+      - marketing
+      - materials
+      - standards
+      - review
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Intellectual Property Ownership
+      title_th: ความเป็นเจ้าของทรัพย์สินทางปัญญาที่เกิดขึ้นใหม่
+      text: The contract must explicitly state who owns any newly created intellectual property, joint
+        derivative works, campaign designs, or data resulting from the co-branding collaboration during
+        and after the term.
+      if_absent: MISSING
+      keywords:
+      - ownership
+      - intellectual property
+      - derivative
+      - works
+      - creation
+      - rights
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Termination and Brand Wind-Down
+      title_th: การเลิกสัญญาและการยุติการใช้แบรนด์ร่วมกัน
+      text: Upon termination or expiration, the contract must specify a reasonable transition period to
+        exhaust existing co-branded inventory, remove marketing collateral, and immediately cease all
+        trademark usage.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - expiration
+      - wind-down
+      - inventory
+      - cease
+      - transition
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Limitation of Liability and Indemnification
+      title_th: การจำกัดความรับผิดและการชดใช้ค่าเสียหาย
+      text: The agreement must include mutual indemnification clauses for third-party claims arising from
+        breach of warranties, intellectual property infringement, or gross negligence, along with balanced
+        liability caps.
+      if_absent: MISSING
+      keywords:
+      - indemnification
+      - liability
+      - third-party
+      - claims
+      - infringement
+      - damages
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Collaboration:
+    rules:
+    - title: Scope of Collaboration and Responsibilities
+      title_th: ขอบเขตความร่วมมือและหน้าที่ความรับผิดชอบ
+      text: The contract must clearly define the specific objectives, deliverables, milestones, and distinct
+        responsibilities of each party to prevent ambiguity and scope creep.
+      if_absent: MISSING
+      keywords:
+      - scope
+      - responsibilities
+      - deliverables
+      - obligations
+      - objectives
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Intellectual Property Ownership and Licensing
+      title_th: ความเป็นเจ้าของและสิทธิการใช้งานทรัพย์สินทางปัญญา
+      text: The contract must specify the ownership of existing background IP, newly created foreground
+        IP resulting from the collaboration, and grant necessary licenses for the project.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - ownership
+      - license
+      - foreground
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Confidentiality and Non-Disclosure
+      title_th: การรักษาความลับและการไม่เปิดเผยข้อมูล
+      text: The contract must include robust confidentiality obligations protecting proprietary business
+        and technical information shared during the collaboration, including a defined survival period.
+      if_absent: MISSING
+      keywords:
+      - confidential
+      - information
+      - disclosure
+      - proprietary
+      - secret
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Termination Rights and Exit Mechanism
+      title_th: สิทธิในการเลิกสัญญาและกลไกการยุติความร่วมมือ
+      text: The contract must provide clear termination rights for convenience or material breach, along
+        with comprehensive transition assistance and settlement of ongoing commitments upon termination.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - breach
+      - convenience
+      - exit
+      - transition
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Limitation of Liability and Indemnification
+      title_th: การจำกัดความรับผิดและการชดใช้ค่าเสียหาย
+      text: The contract must cap overall financial liabilities, exclude indirect or consequential damages,
+        and outline clear indemnification obligations for third-party claims arising from a party's breach
+        or negligence.
+      if_absent: MISSING
+      keywords:
+      - liability
+      - indemnification
+      - damages
+      - cap
+      - negligence
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Financial Terms and Cost Allocation
+      title_th: เงื่อนไขทางการเงินและการจัดสรรค่าใช้จ่าย
+      text: The contract must explicitly state how costs, expenses, funding contributions, or revenue
+        sharing between the parties will be calculated, invoiced, and paid.
+      if_absent: MISSING
+      keywords:
+      - costs
+      - expenses
+      - payment
+      - funding
+      - financial
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Consulting:
+    rules:
+    - title: Scope of Services
+      title_th: ขอบเขตการให้บริการ
+      text: The contract must clearly define the specific deliverables, tasks, milestones, and timeline
+        for the consulting services to prevent scope creep and ensure accountability.
+      if_absent: MISSING
+      keywords:
+      - scope
+      - services
+      - deliverables
+      - tasks
+      - timeline
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Intellectual Property Ownership
+      title_th: ความเป็นเจ้าของทรัพย์สินทางปัญญา
+      text: All intellectual property, work product, and deliverables created by the consultant specifically
+        for the company must vest solely in the company upon creation or payment.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - ownership
+      - deliverables
+      - work product
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Confidentiality
+      title_th: การรักษาความลับ
+      text: The agreement must include robust confidentiality obligations protecting the company's proprietary
+        information, trade secrets, and business data, surviving contract termination.
+      if_absent: MISSING
+      keywords:
+      - confidentiality
+      - confidential
+      - trade secrets
+      - disclosure
+      - proprietary
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Compensation and Payment Terms
+      title_th: ค่าตอบแทนและเงื่อนไขการชำระเงิน
+      text: Fees must be clearly specified with structured payment terms, requiring detailed invoices
+        and successful completion of deliverables before payment release, without automatic price increases.
+      if_absent: MISSING
+      keywords:
+      - fees
+      - payment
+      - compensation
+      - invoices
+      - expenses
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Independent Contractor Status
+      title_th: สถานะผู้รับจ้างอิสระ
+      text: The contract must explicitly state that the consultant is an independent contractor and not
+        an employee, preventing employment liability, benefits claims, and tax withholding obligations.
+      if_absent: MISSING
+      keywords:
+      - independent
+      - contractor
+      - status
+      - employee
+      - relationship
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Termination for Convenience
+      title_th: การบอกเลิกสัญญาโดยไม่ต้องมีเหตุผล
+      text: The company must have the right to terminate the consulting agreement for convenience with
+        reasonable prior written notice, paying only for services properly rendered up to the termination
+        date.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - convenience
+      - notice
+      - breach
+      - expire
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Development:
+    rules:
+    - title: Intellectual Property Ownership
+      title_th: ความเป็นเจ้าของทรัพย์สินทางปัญญา
+      text: The contract must explicitly state that all intellectual property rights, source code, and
+        deliverables created under the development contract are assigned to and owned by our company upon
+        creation or full payment.
+      if_absent: MISSING
+      keywords:
+      - intellectual property
+      - ownership
+      - assignment
+      - deliverables
+      - source code
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Scope of Work and Deliverables
+      title_th: ขอบเขตการทำงานและงานที่ต้องส่งมอบ
+      text: The contract must clearly define the detailed scope of work, technical specifications, milestones,
+        and specific acceptance criteria for each deliverable.
+      if_absent: MISSING
+      keywords:
+      - scope of work
+      - deliverables
+      - specifications
+      - milestones
+      - acceptance criteria
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Warranties and Defect Correction
+      title_th: การรับประกันและการแก้ไขข้อบกพร่อง
+      text: The developer must provide a warranty period (e.g., 90 days) post-delivery to fix any bugs,
+        errors, or non-conformities with the specifications at no additional cost.
+      if_absent: MISSING
+      keywords:
+      - warranty
+      - defect
+      - bugs
+      - correction
+      - maintenance
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Confidentiality
+      title_th: การรักษาความลับ
+      text: The contract must contain robust confidentiality obligations protecting our proprietary information,
+        business plans, and technical data, surviving termination of the agreement.
+      if_absent: MISSING
+      keywords:
+      - confidentiality
+      - confidential information
+      - non-disclosure
+      - proprietary
+      - trade secrets
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Limitation of Liability and Indemnification
+      title_th: การจำกัดความรับผิดและการชดใช้ค่าเสียหาย
+      text: The contract should include provisions requiring the developer to indemnify our company against
+        third-party intellectual property infringement claims and establish clear liability caps.
+      if_absent: MISSING
+      keywords:
+      - indemnification
+      - liability
+      - infringement
+      - damages
+      - hold harmless
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Termination Rights
+      title_th: สิทธิในการบอกเลิกสัญญา
+      text: Our company must have the right to terminate the contract for convenience with prior written
+        notice, as well as for cause upon material breach, with provisions for prorated refunds of prepaid
+        fees.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - breach
+      - convenience
+      - notice
+      - refund
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Distributor:
+    rules:
+    - title: Territory and Exclusivity
+      title_th: เขตพื้นที่การจัดจำหน่ายและความเป็นผู้แทนจำหน่ายแต่เพียงผู้เดียว
+      text: The contract must clearly define the exact geographic territory and whether the distribution
+        rights are exclusive, non-exclusive, or sole, including restrictions on active and passive sales
+        outside the territory.
+      if_absent: MISSING
+      keywords:
+      - territory
+      - exclusive
+      - distribution
+      - geographic
+      - rights
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Minimum Purchase Quotas and Performance Targets
+      title_th: ยอดซื้อขั้นต่ำและเป้าหมายการปฏิบัติงาน
+      text: The contract must specify minimum purchase quantities, sales targets, or performance milestones
+        for specific periods, along with the consequences of failing to meet them such as loss of exclusivity
+        or termination.
+      if_absent: MISSING
+      keywords:
+      - minimum
+      - purchase
+      - quota
+      - target
+      - performance
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Intellectual Property and Branding
+      title_th: ทรัพย์สินทางปัญญาและเครื่องหมายการค้า
+      text: The agreement must grant a limited, non-exclusive license to use company trademarks solely
+        for promoting and selling the products, while explicitly stating that all intellectual property
+        rights remain with our company.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - trademark
+      - license
+      - brand
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Pricing, Payment Terms, and Credit Risk
+      title_th: ราคา เงื่อนไขการชำระเงิน และความเสี่ยงด้านเครดิต
+      text: The contract must detail product pricing mechanisms, price revision notice periods, payment
+        due terms, and consequences of late payment, ensuring our company retains the right to alter prices
+        with reasonable notice.
+      if_absent: MISSING
+      keywords:
+      - price
+      - payment
+      - terms
+      - invoice
+      - credit
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Term and Termination
+      title_th: ระยะเวลาสัญญาและการเลิกสัญญา
+      text: The contract must specify a clear initial term, renewal conditions, and provisions allowing
+        our company to terminate for convenience with advance notice, as well as immediate termination
+        for cause upon distributor breach.
+      if_absent: MISSING
+      keywords:
+      - term
+      - termination
+      - expire
+      - renewal
+      - notice
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Product Warranty and Limitation of Liability
+      title_th: การรับประกันสินค้าและความรับผิดจำกัด
+      text: The contract must define the scope of product warranties, disclaim all implied warranties
+        to the extent permitted by law, and expressly cap our company's total aggregate liability arising
+        out of the distribution relationship.
+      if_absent: MISSING
+      keywords:
+      - warranty
+      - liability
+      - limitation
+      - defect
+      - indemnity
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Endorsement:
+    rules:
+    - title: Scope of Endorsement Rights and Media Channels
+      title_th: ขอบเขตสิทธิการสนับสนุนและช่องทางสื่อ
+      text: The contract must clearly define the permitted scope of endorsement, including specific products,
+        campaigns, and approved media channels such as social media, television, print, and public appearances.
+      if_absent: MISSING
+      keywords:
+      - scope
+      - media
+      - channels
+      - approval
+      - campaign
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Compensation and Payment Terms
+      title_th: ค่าตอบแทนและเงื่อนไขการชำระเงิน
+      text: The contract must explicitly detail the total compensation, payment schedule, invoicing procedures,
+        and any performance-based milestones or withholding taxes applicable to the endorsement fees.
+      if_absent: MISSING
+      keywords:
+      - compensation
+      - payment
+      - fee
+      - invoice
+      - schedule
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Moral Clause and Conduct Obligations
+      title_th: ข้อกำหนดด้านความประพฤติและจริยธรรม
+      text: The endorser must maintain a good public reputation and refrain from engaging in any illegal,
+        immoral, or scandalous behavior that could negatively impact the company's brand image.
+      if_absent: MISSING
+      keywords:
+      - moral
+      - reputation
+      - conduct
+      - scandal
+      - image
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Exclusivity and Non-Compete
+      title_th: ความเอ็กซ์คลูซีฟและข้อจำกัดการรับงานแข่งขัน
+      text: The contract must specify whether the endorsement is exclusive, prohibiting the endorser from
+        promoting competing products or brands within the same industry category during the term.
+      if_absent: COMPLIANT
+      keywords:
+      - exclusivity
+      - competing
+      - products
+      - category
+      - restrictions
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Intellectual Property Rights and Approvals
+      title_th: สิทธิในทรัพย์สินทางปัญญาและการตรวจสอบเนื้อหา
+      text: The contract must state that all promotional materials created under the agreement are owned
+        by the company or properly licensed, and require the company's prior written approval for all
+        content before publication.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - approval
+      - materials
+      - license
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Termination and Post-Termination Obligations
+      title_th: การเลิกสัญญาและภาระผูกพันหลังเลิกสัญญา
+      text: The contract must outline the conditions for early termination, notice periods, and require
+        the immediate cessation of all endorsement activities and removal of promotional materials upon
+        contract expiration or termination.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - expiry
+      - notice
+      - cease
+      - removal
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Franchise:
+    rules:
+    - title: Franchise Fee and Royalty Payments
+      title_th: ค่าธรรมเนียมแฟรนไชส์และค่าสิทธิ์ทางการค้า
+      text: The contract must clearly specify the initial franchise fee, ongoing royalty fees, payment
+        schedules, calculation methods, and the consequences of late payment.
+      if_absent: MISSING
+      keywords:
+      - fee
+      - royalty
+      - payment
+      - schedule
+      - initial
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Territory and Exclusivity
+      title_th: อาณาเขตและความคุ้มครองพื้นที่
+      text: The contract must define the exclusive territory granted to the franchisee, restrictions on
+        the franchisor opening competing locations, and online sales rights within that territory.
+      if_absent: MISSING
+      keywords:
+      - territory
+      - exclusive
+      - location
+      - restriction
+      - market
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Intellectual Property Licensing
+      title_th: การอนุญาตให้ใช้ทรัพย์สินทางปัญญา
+      text: The contract must explicitly define the scope of trademarks, trade secrets, logos, and proprietary
+        systems licensed to the franchisee, including restrictions on use and ownership retention by the
+        franchisor.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - trademark
+      - license
+      - brand
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Term, Renewal, and Termination
+      title_th: ระยะเวลาสัญญา การต่ออายุ และการเลิกสัญญา
+      text: The contract must state the duration of the franchise, conditions for renewal, grounds for
+        termination by either party, and post-termination obligations such as de-identifying the premises.
+      if_absent: MISSING
+      keywords:
+      - term
+      - renewal
+      - termination
+      - duration
+      - expire
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Training and Operational Support
+      title_th: การฝึกอบรมและการสนับสนุนการดำเนินงาน
+      text: The contract must detail the initial and ongoing training, operational manuals, and marketing
+        support provided by the franchisor to maintain brand standards.
+      if_absent: MISSING
+      keywords:
+      - training
+      - support
+      - manual
+      - operation
+      - standard
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Post-Termination Non-Compete
+      title_th: ข้อตกลงไม่แข่งขันหลังสิ้นสุดสัญญา
+      text: The contract must include a reasonable non-compete clause restricting the franchisee from
+        operating a similar competing business within a specified geographic area and time frame after
+        termination.
+      if_absent: COMPLIANT
+      keywords:
+      - competition
+      - restrict
+      - post
+      - confidential
+      - covenant
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Hosting:
+    rules:
+    - title: Service Level Agreement and Uptime Guarantee
+      title_th: ระดับการให้บริการและการรับประกันเวลาทำงานของระบบ
+      text: The contract must guarantee a specific monthly uptime percentage (e.g., 99.9%) and specify
+        clear financial credits or remedies if the hosting service fails to meet this availability standard.
+      if_absent: MISSING
+      keywords:
+      - uptime
+      - availability
+      - SLA
+      - service level
+      - credit
+      - outage
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Limitation of Liability
+      title_th: การจำกัดความรับผิด
+      text: The contract should establish a mutual and reasonable cap on liability, preferably tied to
+        fees paid, while expressly excluding or carefully carving out indirect, consequential, or lost
+        profit damages.
+      if_absent: MISSING
+      keywords:
+      - liability
+      - limitation
+      - cap
+      - damages
+      - indirect
+      - consequential
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Data Ownership and Export
+      title_th: ความเป็นเจ้าของข้อมูลและการส่งออกข้อมูล
+      text: The agreement must explicitly state that all customer data, content, and intellectual property
+        remain the sole property of our company, and require the provider to return or securely delete
+        all data upon contract termination.
+      if_absent: MISSING
+      keywords:
+      - data ownership
+      - intellectual property
+      - export
+      - return
+      - delete
+      - customer content
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Security Standards and Audits
+      title_th: มาตรฐานความปลอดภัยและการตรวจสอบระบบ
+      text: The provider must warrant the implementation of industry-standard physical, technical, and
+        administrative security measures and permit regular security assessments or provide third-party
+        audit reports upon request.
+      if_absent: MISSING
+      keywords:
+      - security
+      - standards
+      - audit
+      - safeguards
+      - compliance
+      - encryption
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Backup and Disaster Recovery
+      title_th: การสำรองข้อมูลและการกู้คืนระบบจากภัยพิบัติ
+      text: The contract must detail the provider's routine backup frequency, data retention periods,
+        and disaster recovery procedures to ensure rapid restoration of hosting services in the event
+        of failure.
+      if_absent: MISSING
+      keywords:
+      - backup
+      - disaster recovery
+      - restoration
+      - retention
+      - frequency
+      - loss
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Fees, Invoicing, and Price Changes
+      title_th: ค่าบริการ การออกใบแจ้งหนี้ และการปรับเปลี่ยนราคา
+      text: The contract must clearly define the hosting fees, billing cycles, and tax terms, while prohibiting
+        unilateral price increases without advance written notice and a right for our company to terminate
+        without penalty.
+      if_absent: MISSING
+      keywords:
+      - fees
+      - billing
+      - invoice
+      - price increase
+      - charges
+      - payment terms
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  IP:
+    rules:
+    - title: IP Ownership and Assignment
+      title_th: ความเป็นเจ้าของและการโอนสิทธิในทรัพย์สินทางปัญญา
+      text: The contract must clearly define whether existing IP remains with the originating party and
+        explicitly state that all newly developed or foreground IP created under the agreement is fully
+        assigned to our company upon creation.
+      if_absent: MISSING
+      keywords:
+      - intellectual property
+      - assignment
+      - ownership
+      - foreground IP
+      - transfer
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Scope of License Grant
+      title_th: ขอบเขตของการอนุญาตให้ใช้สิทธิ
+      text: If any IP is licensed rather than assigned, the agreement must specify that the license granted
+        to our company is worldwide, irrevocable, perpetual, transferable, sublicensable, and royalty-free
+        or clearly cost-defined.
+      if_absent: MISSING
+      keywords:
+      - license
+      - worldwide
+      - irrevocable
+      - perpetual
+      - sublicensable
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: IP Infringement Indemnification
+      title_th: การชดใช้ค่าเสียหายกรณีการละเมิดทรัพย์สินทางปัญญา
+      text: The counterparty must provide a robust indemnity protecting our company against any third-party
+        claims alleging that the provided IP or deliverables infringe any patent, copyright, trademark,
+        or trade secret.
+      if_absent: MISSING
+      keywords:
+      - indemnification
+      - infringement
+      - third-party claims
+      - defense
+      - hold harmless
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Confidentiality and Trade Secrets
+      title_th: การรักษาความลับและความลับทางการค้า
+      text: The contract must contain strict confidentiality obligations protecting proprietary information,
+        source code, and technical data disclosed during the contract term and for an appropriate survival
+        period thereafter.
+      if_absent: MISSING
+      keywords:
+      - confidentiality
+      - trade secrets
+      - disclosure
+      - proprietary information
+      - survival
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Warranties and Representations
+      title_th: คำรับรองและคำรับประกัน
+      text: The counterparty must warrant that they own or have sufficient rights to all licensed or assigned
+        IP, that it is free of encumbrances, and that deliverables will be free from material defects
+        and malicious code.
+      if_absent: MISSING
+      keywords:
+      - warranties
+      - representations
+      - encumbrances
+      - defect
+      - malicious code
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Post-Termination Rights and Transition
+      title_th: สิทธิและการเปลี่ยนผ่านหลังการเลิกสัญญา
+      text: Upon termination or expiration of the contract, the agreement must clearly outline the return
+        or destruction of confidential materials, the survival of licenses or assignment provisions, and
+        a smooth transition process.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - transition
+      - return of materials
+      - survival
+      - expiration
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Joint Venture:
+    rules:
+    - title: Management Control and Board Representation
+      title_th: การควบคุมการบริหารและสัดส่วนคณะกรรมการ
+      text: The contract must clearly define the board composition, voting thresholds, and management
+        control rights for our company to ensure adequate protection of our interests and decision-making
+        power.
+      if_absent: MISSING
+      keywords:
+      - board
+      - director
+      - control
+      - management
+      - voting
+      - resolution
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Capital Contribution and Funding Obligations
+      title_th: การลงทุนและการสมทบเงินทุน
+      text: The contract must specify the exact financial contributions, payment timelines, consequences
+        of failure to fund, and additional capital call procedures for both parties.
+      if_absent: MISSING
+      keywords:
+      - capital
+      - contribution
+      - funding
+      - payment
+      - default
+      - shares
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Deadlock Resolution Mechanism
+      title_th: กลไกการระงับข้อพิพาทกรณีทางตัน
+      text: The contract must contain a clear deadlock resolution mechanism, such as escalation to senior
+        executives, mediation, buyout options, or dissolution procedures, if the parties cannot reach
+        a required voting majority.
+      if_absent: MISSING
+      keywords:
+      - deadlock
+      - dispute
+      - resolution
+      - mediation
+      - buyout
+      - impasse
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Transfer of Shares and Restrictions
+      title_th: การโอนหุ้นและข้อจำกัด
+      text: The contract must set clear restrictions on share transfers to third parties, including rights
+        of first refusal, tag-along rights, and drag-along rights, protecting our company from unwanted
+        partners.
+      if_absent: MISSING
+      keywords:
+      - transfer
+      - shares
+      - restriction
+      - first refusal
+      - tag-along
+      - drag-along
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Intellectual Property and Confidentiality
+      title_th: ทรัพย์สินทางปัญญาและการรักษาความลับ
+      text: The contract must protect each party's pre-existing intellectual property, define the ownership
+        of newly developed intellectual property within the joint venture, and enforce strict confidentiality
+        obligations.
+      if_absent: MISSING
+      keywords:
+      - intellectual property
+      - confidentiality
+      - license
+      - ownership
+      - secret
+      - patent
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Termination and Exit Strategy
+      title_th: การเลิกสัญญาและกลยุทธ์การถอนตัว
+      text: The contract must detail the grounds for early termination, post-termination obligations,
+        asset liquidation procedures, and a clear exit strategy for our company under various scenarios.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - exit
+      - liquidation
+      - dissolution
+      - breach
+      - effects
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  License:
+    rules:
+    - title: Scope of License and Permitted Use
+      title_th: ขอบเขตสิทธิการใช้งานและการอนุญาตให้ใช้
+      text: The contract must clearly define the exact scope of the license granted, including whether
+        it is exclusive or non-exclusive, permitted territories, media, and specific business purposes,
+        ensuring our company does not exceed granted rights or face unintended restrictions.
+      if_absent: MISSING
+      keywords:
+      - scope
+      - exclusive
+      - territory
+      - permitted
+      - use
+      - license
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Fees, Royalties, and Payment Terms
+      title_th: ค่าสิทธิ ค่าธรรมเนียม และเงื่อนไขการชำระเงิน
+      text: The contract must specify all financial obligations including upfront fees, ongoing royalties,
+        payment schedules, invoicing procedures, and tax responsibilities, ensuring transparency and predictability
+        in financial outflows.
+      if_absent: MISSING
+      keywords:
+      - royalty
+      - fee
+      - payment
+      - invoice
+      - tax
+      - schedule
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Intellectual Property Ownership and Infringement
+      title_th: ความเป็นเจ้าของทรัพย์สินทางปัญญาและการละเมิดสิทธิ
+      text: The contract must state that all underlying intellectual property remains with the rightful
+        owner, outline procedures for handling third-party infringement claims, and include appropriate
+        warranties of non-infringement.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - ownership
+      - infringement
+      - warranty
+      - third-party
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Term, Renewal, and Termination
+      title_th: ระยะเวลา การต่อสัญญา และการเลิกสัญญา
+      text: The contract must define the exact duration of the license, mechanism for renewal if any,
+        clear grounds for termination for convenience or cause, and post-termination obligations such
+        as cessation of use.
+      if_absent: MISSING
+      keywords:
+      - term
+      - termination
+      - renewal
+      - duration
+      - expire
+      - cessation
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Audit Rights and Compliance Verification
+      title_th: สิทธิในการตรวจสอบและการตรวจสอบความถูกต้อง
+      text: The contract should outline reasonable provisions allowing the licensor to verify usage compliance
+        and financial reporting, while ensuring our company's operational disruption is minimized and
+        confidentiality is maintained during any audit.
+      if_absent: COMPLIANT
+      keywords:
+      - audit
+      - compliance
+      - verify
+      - records
+      - inspection
+      - books
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Limitation of Liability and Indemnification
+      title_th: การจำกัดความรับผิดและการชดใช้ค่าเสียหาย
+      text: The contract must allocate risk fairly by establishing clear caps on liability for damages
+        and defining mutual indemnification obligations for third-party claims arising from breaches of
+        the agreement or intellectual property infringement.
+      if_absent: MISSING
+      keywords:
+      - liability
+      - indemnification
+      - damages
+      - cap
+      - hold
+      - harmless
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
   Maintenance:
     rules:
     - id: P-01
@@ -136,6 +1402,288 @@ types:
       - บุคคลภายนอก
       origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
       added: '2026-11-14'
+  Manufacturing:
+    rules:
+    - title: Product Specifications and Quality Standards
+      title_th: ข้อกำหนดด้านผลิตภัณฑ์และมาตรฐานคุณภาพ
+      text: The contract must clearly define the detailed product specifications, manufacturing standards,
+        and Acceptance criteria, including procedures for inspection and rejection of defective goods.
+      if_absent: MISSING
+      keywords:
+      - specifications
+      - quality
+      - standards
+      - inspection
+      - acceptance
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Delivery Terms and Risk of Loss
+      title_th: เงื่อนไขการส่งมอบและความเสี่ยงในการสูญหาย
+      text: The contract must specify clear delivery schedules, Incoterms, and the exact point at which
+        title and risk of loss pass from the manufacturer to our company.
+      if_absent: MISSING
+      keywords:
+      - delivery
+      - schedule
+      - risk
+      - title
+      - incoterms
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Warranty and Defective Goods Remedies
+      title_th: การรับประกันสินค้าและการแก้ไขเยียวยาเมื่อสินค้าบกพร่อง
+      text: The contract must provide a comprehensive product warranty period and specify mandatory remedies
+        for defective goods, such as repair, replacement, or full refund at our option.
+      if_absent: MISSING
+      keywords:
+      - warranty
+      - defective
+      - repair
+      - replacement
+      - remedies
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Limitation of Liability and Indemnification
+      title_th: การจำกัดความรับผิดและการชดใช้ค่าเสียหาย
+      text: The contract must define the scope of liability for both parties and include an indemnification
+        clause protecting our company from third-party claims arising from manufacturing defects or IP
+        infringement.
+      if_absent: MISSING
+      keywords:
+      - liability
+      - indemnification
+      - claims
+      - third-party
+      - damages
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Intellectual Property Rights
+      title_th: สิทธิในทรัพย์สินทางปัญญา
+      text: The contract must explicitly state that all intellectual property rights in custom designs,
+        specifications, and tooling provided by our company or created under the contract remain our exclusive
+        property.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - rights
+      - designs
+      - ownership
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Termination for Convenience and Cause
+      title_th: การเลิกสัญญาโดยมีเหตุและไม่มีเหตุอันควร
+      text: The contract must outline clear grounds for termination for cause (such as material breach
+        or insolvency) and allow our company the right to terminate for convenience with reasonable advance
+        notice.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - breach
+      - insolvency
+      - notice
+      - convenience
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Marketing:
+    rules:
+    - title: Scope of Services and Deliverables
+      title_th: ขอบเขตการให้บริการและงานที่ต้องส่งมอบ
+      text: The contract must clearly define the exact marketing services, campaign activities, and tangible
+        deliverables to be provided, including timelines and acceptance criteria.
+      if_absent: MISSING
+      keywords:
+      - scope
+      - services
+      - deliverables
+      - timeline
+      - acceptance
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Intellectual Property Rights
+      title_th: สิทธิในทรัพย์สินทางปัญญา
+      text: All intellectual property created during the marketing campaign must be assigned to our company
+        upon full payment, and the provider must warrant that their materials do not infringe third-party
+        rights.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - ownership
+      - assignment
+      - infringement
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Compensation and Payment Terms
+      title_th: ค่าตอบแทนและเงื่อนไขการชำระเงิน
+      text: Payment terms must be tied to successful milestones or deliverables, requiring detailed invoices
+        and prohibiting upfront payments without adequate bank guarantees.
+      if_absent: MISSING
+      keywords:
+      - payment
+      - fees
+      - invoice
+      - milestones
+      - compensation
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Confidentiality
+      title_th: การรักษาความลับ
+      text: The marketing provider must protect all proprietary business information, marketing strategies,
+        and customer data disclosed during the contract, surviving termination.
+      if_absent: MISSING
+      keywords:
+      - confidentiality
+      - information
+      - disclosure
+      - non-disclosure
+      - proprietary
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Termination for Convenience
+      title_th: การบอกเลิกสัญญาโดยไม่ต้องมีเหตุผล
+      text: Our company must have the right to terminate the contract for convenience with reasonable
+        prior written notice, paying only for services properly rendered up to the termination date.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - convenience
+      - notice
+      - cancel
+      - effect
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Indemnification and Limitation of Liability
+      title_th: การชดใช้ค่าเสียหายและข้อจำกัดความรับผิด
+      text: The marketing provider must indemnify our company against third-party claims arising from
+        their negligence, regulatory non-compliance of the ads, or breach of contract.
+      if_absent: MISSING
+      keywords:
+      - indemnification
+      - liability
+      - claims
+      - damages
+      - indemnity
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Non-Compete / Non-Solicit:
+    rules:
+    - title: Scope of Prohibited Activities
+      title_th: ขอบเขตกิจกรรมที่ห้ามกระทำ
+      text: The restriction must clearly define the specific types of business activities, industries,
+        or competitive roles that the restricted party is forbidden from engaging in, ensuring it is not
+        overly broad.
+      if_absent: MISSING
+      keywords:
+      - compete
+      - business
+      - activities
+      - restricted
+      - industry
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Geographic Limitation
+      title_th: ข้อจำกัดด้านพื้นที่ทางภูมิศาสตร์
+      text: The non-compete obligation must specify a reasonable and well-defined geographic area where
+        the restriction applies, corresponding to the actual operational footprint of the company.
+      if_absent: MISSING
+      keywords:
+      - geographic
+      - territory
+      - area
+      - region
+      - location
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Duration of Restriction
+      title_th: ระยะเวลาในการบังคับใช้ข้อจำกัด
+      text: The agreement must state a clear and reasonable time limit for both the non-compete and non-solicit
+        periods following the termination of the primary relationship.
+      if_absent: MISSING
+      keywords:
+      - duration
+      - period
+      - months
+      - years
+      - termination
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Non-Solicitation of Employees
+      title_th: การห้ามชักชวนพนักงาน
+      text: The restricted party must be expressly prohibited from hiring, soliciting, or attempting to
+        entice away any employees, consultants, or key personnel of the company.
+      if_absent: MISSING
+      keywords:
+      - solicit
+      - employees
+      - hire
+      - poach
+      - personnel
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Non-Solicitation of Clients and Customers
+      title_th: การห้ามชักชวนลูกค้าและคู่ค้า
+      text: The contract must prevent the restricted party from soliciting, servicing, or diverting clients,
+        customers, vendors, or business partners of the company.
+      if_absent: MISSING
+      keywords:
+      - clients
+      - customers
+      - vendors
+      - business
+      - contacts
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Injunctive Relief and Remedies
+      title_th: การบรรเทาทุกข์ด้วยคำสั่งศาลและการเยียวยา
+      text: The agreement should explicitly reserve the company's right to seek injunctive relief, specific
+        performance, and damages in the event of a breach, acknowledging that monetary damages alone may
+        be insufficient.
+      if_absent: COMPLIANT
+      keywords:
+      - injunctive
+      - relief
+      - breach
+      - damages
+      - remedies
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
   Outsourcing:
     rules:
     - id: P-01
@@ -205,6 +1753,195 @@ types:
       keywords: *id007
       origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
       added: '2026-11-14'
+  Promotion:
+    rules:
+    - title: Promotion Period and Effective Date
+      title_th: ระยะเวลาและวันที่เริ่มมีผลบังคับใช้ของการส่งเสริมการขาย
+      text: The contract must explicitly state the exact start and end dates and times of the promotional
+        campaign, including any grace periods for entry submissions.
+      if_absent: MISSING
+      keywords:
+      - duration
+      - commencement
+      - expiration
+      - period
+      - timeline
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Scope of Promotional Benefits and Prizes
+      title_th: ขอบเขตสิทธิประโยชน์และของรางวัลในการส่งเสริมการขาย
+      text: The agreement must clearly detail the nature, value, quantity, and distribution mechanism
+        of all promotional benefits, discounts, or prizes offered to participants.
+      if_absent: MISSING
+      keywords:
+      - prize
+      - benefit
+      - discount
+      - reward
+      - allocation
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Financial Terms and Cost Allocation
+      title_th: เงื่อนไขทางการเงินและการจัดสรรค่าใช้จ่าย
+      text: The contract must clearly define which party bears specific costs such as marketing, prize
+        procurement, shipping, tax liabilities, and payment settlement schedules.
+      if_absent: MISSING
+      keywords:
+      - cost
+      - expense
+      - budget
+      - tax
+      - payment
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Intellectual Property and Marketing Materials
+      title_th: ทรัพย์สินทางปัญญาและสื่อประชาสัมพันธ์
+      text: The agreement must grant our company appropriate licenses to use the counterparty's trademarks,
+        logos, and promotional materials solely for the execution of the campaign.
+      if_absent: MISSING
+      keywords:
+      - trademark
+      - logo
+      - license
+      - intellectual
+      - property
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Limitation of Liability and Indemnification
+      title_th: การจำกัดความรับผิดและการชดใช้ค่าเสียหาย
+      text: The contract should outline the extent of liability for each party and include an indemnity
+        clause protecting our company from third-party claims arising from the counterparty's breach or
+        negligence.
+      if_absent: MISSING
+      keywords:
+      - liability
+      - indemnify
+      - damage
+      - claim
+      - hold harmless
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Termination and Cancellation Conditions
+      title_th: เงื่อนไขการเลิกสัญญาและการยกเลิกแคมเปญ
+      text: The contract must specify the conditions under which either party can terminate the agreement
+        early, including procedures for handling ongoing promotions and settling outstanding obligations
+        upon termination.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - cancel
+      - default
+      - breach
+      - settlement
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Reseller:
+    rules:
+    - title: Resale Territory and Exclusivity
+      title_th: อาณาเขตการจัดจำหน่ายและความเป็นผู้จัดจำหน่ายแต่เพียงผู้เดียว
+      text: The contract must explicitly define the geographic territory and channel restrictions for
+        the reseller, stating whether the appointment is exclusive, non-exclusive, or sole.
+      if_absent: MISSING
+      keywords:
+      - territory
+      - exclusive
+      - reseller
+      - geographic
+      - restriction
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Minimum Purchase Quotas and Performance
+      title_th: ยอดซื้อขั้นต่ำและเป้าหมายการปฏิบัติงาน
+      text: The contract must specify minimum purchase requirements, sales quotas, or performance metrics
+        that the reseller must maintain, along with consequences for failing to meet them.
+      if_absent: MISSING
+      keywords:
+      - quota
+      - minimum
+      - purchase
+      - performance
+      - target
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Pricing, Payment Terms, and Taxes
+      title_th: ราคา เงื่อนไขการชำระเงิน และภาษี
+      text: The contract must detail the reseller wholesale pricing, credit terms, payment schedules,
+        invoicing procedures, and allocation of applicable taxes or duties.
+      if_absent: MISSING
+      keywords:
+      - pricing
+      - payment
+      - invoice
+      - credit
+      - taxes
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Intellectual Property and Brand Usage
+      title_th: ทรัพย์สินทางปัญญาและการใช้เครื่องหมายการค้า
+      text: The contract must grant a limited license for the reseller to use our trademarks, logos, and
+        marketing materials solely for promoting and selling the products, while strictly prohibiting
+        IP ownership transfer.
+      if_absent: MISSING
+      keywords:
+      - trademark
+      - intellectual
+      - property
+      - license
+      - brand
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Product Warranty and Return Policy
+      title_th: การรับประกันสินค้าและนโยบายการคืนสินค้า
+      text: The contract must outline the scope of product warranties provided to end-users, procedures
+        for handling defective goods, and the allocation of costs and responsibilities for product returns
+        and recalls.
+      if_absent: MISSING
+      keywords:
+      - warranty
+      - defective
+      - return
+      - recall
+      - repair
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Termination and Post-Termination Obligations
+      title_th: การเลิกสัญญาและภาระผูกพันหลังการเลิกสัญญา
+      text: The contract must specify termination rights for convenience and cause, notice periods, and
+        post-termination obligations such as inventory buy-back rights, cessation of trademark use, and
+        return of confidential information.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - notice
+      - inventory
+      - confidential
+      - post-termination
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
   Service:
     rules:
     - id: P-01
@@ -274,6 +2011,195 @@ types:
       keywords: *id007
       origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
       added: '2026-11-14'
+  Sponsorship:
+    rules:
+    - title: Grant of Rights and Exclusivity
+      title_th: การให้สิทธิและความเป็นผู้สนับสนุนแต่เพียงผู้เดียว
+      text: The contract must clearly define the exact sponsorship rights granted to our company, including
+        exclusivity within our industry sector, to ensure we receive the commercial value and protection
+        expected from the sponsorship.
+      if_absent: MISSING
+      keywords:
+      - rights
+      - exclusivity
+      - grant
+      - industry
+      - category
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Sponsorship Fee and Payment Terms
+      title_th: ค่าสนับสนุนและเงื่อนไขการชำระเงิน
+      text: The contract must explicitly state the total sponsorship fee, payment schedule, invoicing
+        procedures, and any conditions tied to milestones or deliverables before payments are released.
+      if_absent: MISSING
+      keywords:
+      - fee
+      - payment
+      - schedule
+      - invoice
+      - installment
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Intellectual Property and Brand Usage
+      title_th: ทรัพย์สินทางปัญญาและการใช้ตราสินค้า
+      text: The contract must grant each party a limited, non-exclusive license to use the other party's
+        trademarks, logos, and brand assets solely for the approved sponsorship activities, subject to
+        prior brand approval.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - trademark
+      - logo
+      - license
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Termination and Cancellation Rights
+      title_th: สิทธิในการบอกเลิกสัญญาและการยกเลิก
+      text: The contract must outline clear termination rights for material breach, insolvency, and convenience,
+        including provisions for pro-rata fee refunds if the sponsored event or asset is cancelled or
+        diminished.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - cancel
+      - breach
+      - refund
+      - default
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Indemnification and Limitation of Liability
+      title_th: การชดใช้ค่าเสียหายและข้อจำกัดความรับผิด
+      text: The contract must include mutual or appropriate indemnification clauses protecting our company
+        from third-party claims arising from the other party's negligence, illegal acts, or breach of
+        contract, alongside reasonable liability caps.
+      if_absent: MISSING
+      keywords:
+      - indemnify
+      - liability
+      - claim
+      - damages
+      - hold harmless
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Force Majeure
+      title_th: เหตุสุดวิสัย
+      text: The contract must define force majeure events clearly, specifying the notification requirements,
+        the suspension of obligations, and the ultimate right to terminate if the event persists beyond
+        a defined timeframe.
+      if_absent: MISSING
+      keywords:
+      - force
+      - majeure
+      - event
+      - suspension
+      - excused
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+  Strategic Alliance:
+    rules:
+    - title: Scope of Collaboration and Objectives
+      title_th: ขอบเขตความร่วมมือและวัตถุประสงค์
+      text: The contract must clearly define the specific goals, joint activities, and scope of cooperation
+        between the parties to prevent ambiguity and scope creep.
+      if_absent: MISSING
+      keywords:
+      - scope
+      - collaboration
+      - objectives
+      - activities
+      - purpose
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Intellectual Property Ownership and Licensing
+      title_th: ความเป็นเจ้าของสิทธิในทรัพย์สินทางปัญญาและการอนุญาตให้ใช้สิทธิ
+      text: The contract must specify the ownership of existing IP, clearly allocate rights to newly created
+        joint IP, and define the scope of licenses granted for alliance purposes.
+      if_absent: MISSING
+      keywords:
+      - intellectual
+      - property
+      - ownership
+      - license
+      - patent
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Resource and Financial Contributions
+      title_th: การสนับสนุนด้านทรัพยากรและเงินทุน
+      text: The contract must detail each party's financial commitments, sharing of costs, and allocation
+        of personnel or physical resources required for the alliance.
+      if_absent: MISSING
+      keywords:
+      - contribution
+      - financial
+      - costs
+      - resources
+      - funding
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Governance and Decision Making
+      title_th: การบริหารจัดการและการตัดสินใจ
+      text: The contract must establish a joint steering committee or management structure, detailing
+        voting procedures, meeting frequencies, and deadlock resolution mechanisms.
+      if_absent: MISSING
+      keywords:
+      - governance
+      - committee
+      - management
+      - deadlock
+      - decisions
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Confidentiality and Non-Disclosure
+      title_th: การรักษาความลับและการไม่เปิดเผยข้อมูล
+      text: The contract must define confidential information shared during the alliance, set obligations
+        for its protection, and specify the duration of confidentiality post-termination.
+      if_absent: MISSING
+      keywords:
+      - confidentiality
+      - disclosure
+      - secret
+      - information
+      - non-disclosure
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Termination and Exit Strategy
+      title_th: การเลิกสัญญาและแนวทางการยุติความร่วมมือ
+      text: The contract must outline termination rights for convenience, material breach, insolvency,
+        and detail post-termination transition steps, asset division, and winding down.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - exit
+      - breach
+      - wind-down
+      - transition
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
   Supply:
     rules:
     - id: P-01
@@ -343,3 +2269,193 @@ types:
       keywords: *id007
       origin: นโยบายตัวอย่างภาษาไทย (sample_company_policy_th.pdf)
       added: '2026-11-14'
+  Transportation:
+    rules:
+    - title: Limitation of Liability
+      title_th: การจำกัดความรับผิด
+      text: The contract must clearly define and cap the carrier's liability for loss, damage, or delay
+        of goods, ensuring it aligns with standard industry liability limits and does not impose unlimited
+        liability on our company.
+      if_absent: MISSING
+      keywords:
+      - liability
+      - limitation
+      - damage
+      - loss
+      - carrier
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-01
+    - title: Insurance Requirements
+      title_th: ข้อกำหนดด้านการประกันภัย
+      text: The service provider or carrier must maintain adequate commercial general liability and cargo
+        insurance policies, naming our company as an additional insured and providing proof of coverage
+        upon request.
+      if_absent: MISSING
+      keywords:
+      - insurance
+      - policy
+      - coverage
+      - cargo
+      - carrier
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-02
+    - title: Service Level Agreements and Performance Standards
+      title_th: ข้อตกลงระดับการให้บริการและมาตรฐานการปฏิบัติงาน
+      text: The contract must specify clear Key Performance Indicators (KPIs), transit times, delivery
+        schedules, and remedies or service credits for delayed or failed deliveries.
+      if_absent: MISSING
+      keywords:
+      - service
+      - level
+      - performance
+      - schedule
+      - delivery
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-03
+    - title: Force Majeure
+      title_th: เหตุสุดวิสัย
+      text: The contract must include a well-defined force majeure clause that excuses performance only
+        for unforeseeable and unavoidable events, excluding routine operational delays or weather that
+        should reasonably be anticipated.
+      if_absent: MISSING
+      keywords:
+      - force
+      - majeure
+      - event
+      - excuse
+      - unforeseeable
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-04
+    - title: Rates, Fees, and Payment Terms
+      title_th: อัตราค่าบริการ ค่าธรรมเนียม และเงื่อนไขการชำระเงิน
+      text: The agreement must clearly state the freight rates, additional accessorial charges, invoicing
+        procedures, and payment terms, prohibiting unilateral rate increases without our prior written
+        consent.
+      if_absent: MISSING
+      keywords:
+      - rates
+      - fees
+      - payment
+      - invoicing
+      - charges
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-05
+    - title: Termination for Convenience
+      title_th: การเลิกสัญญาโดยไม่ต้องมีเหตุผล
+      text: Our company must have the right to terminate the transportation agreement for convenience
+        with a reasonable prior written notice period, without incurring unreasonable penalties.
+      if_absent: MISSING
+      keywords:
+      - termination
+      - convenience
+      - notice
+      - cancel
+      - default
+      draft: true
+      origin: AI ร่างล่วงหน้า (ไม่อิงสัญญาใด)
+      added: '2026-11-14'
+      id: P-06
+meta:
+  All:
+    version: 1
+    updated: 2026-11-14 11:00
+    confirmed_at: 2026-11-14 11:00
+    confirmed_by: นโยบายตัวอย่างของบริษัท (ตั้งต้น)
+    confirmed_version: 1
+  Affiliate:
+    version: 1
+    updated: 2026-11-14 11:00
+  Agency:
+    version: 1
+    updated: 2026-11-14 11:00
+  Co-Branding:
+    version: 1
+    updated: 2026-11-14 11:00
+  Collaboration:
+    version: 1
+    updated: 2026-11-14 11:00
+  Consulting:
+    version: 1
+    updated: 2026-11-14 11:00
+  Development:
+    version: 1
+    updated: 2026-11-14 11:00
+  Distributor:
+    version: 1
+    updated: 2026-11-14 11:00
+  Endorsement:
+    version: 1
+    updated: 2026-11-14 11:00
+  Franchise:
+    version: 1
+    updated: 2026-11-14 11:00
+  Hosting:
+    version: 1
+    updated: 2026-11-14 11:00
+  IP:
+    version: 1
+    updated: 2026-11-14 11:00
+  Joint Venture:
+    version: 1
+    updated: 2026-11-14 11:00
+  License:
+    version: 1
+    updated: 2026-11-14 11:00
+  Maintenance:
+    version: 1
+    updated: 2026-11-14 11:00
+    confirmed_at: 2026-11-14 11:00
+    confirmed_by: นโยบายตัวอย่างของบริษัท (ตั้งต้น)
+    confirmed_version: 1
+  Manufacturing:
+    version: 1
+    updated: 2026-11-14 11:00
+  Marketing:
+    version: 1
+    updated: 2026-11-14 11:00
+  Non-Compete / Non-Solicit:
+    version: 1
+    updated: 2026-11-14 11:00
+  Outsourcing:
+    version: 1
+    updated: 2026-11-14 11:00
+    confirmed_at: 2026-11-14 11:00
+    confirmed_by: นโยบายตัวอย่างของบริษัท (ตั้งต้น)
+    confirmed_version: 1
+  Promotion:
+    version: 1
+    updated: 2026-11-14 11:00
+  Reseller:
+    version: 1
+    updated: 2026-11-14 11:00
+  Service:
+    version: 1
+    updated: 2026-11-14 11:00
+    confirmed_at: 2026-11-14 11:00
+    confirmed_by: นโยบายตัวอย่างของบริษัท (ตั้งต้น)
+    confirmed_version: 1
+  Sponsorship:
+    version: 1
+    updated: 2026-11-14 11:00
+  Strategic Alliance:
+    version: 1
+    updated: 2026-11-14 11:00
+  Supply:
+    version: 1
+    updated: 2026-11-14 11:00
+    confirmed_at: 2026-11-14 11:00
+    confirmed_by: นโยบายตัวอย่างของบริษัท (ตั้งต้น)
+    confirmed_version: 1
+  Transportation:
+    version: 1
+    updated: 2026-11-14 11:00
