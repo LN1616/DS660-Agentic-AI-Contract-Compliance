@@ -536,6 +536,7 @@ TEXT.update({
     "run_meta": ("{mode} · {s} วินาที · {calls} AI calls · {tok} tokens · ต้นทุน ${cost} · {model}",
                  "{mode} · {s} s · {calls} AI calls · {tok} tokens · cost ${cost} · {model}"),
     "app_sub": ("ตรวจสัญญาทุกประเภทเทียบนโยบายบริษัทตามประเภทสัญญา", "Contract review against your company policy for each contract type"),
+    "hdr_open": ("สัญญาที่เปิดอยู่: {name}", "Open contract: {name}"),
     "st_policy": ("นโยบาย", "Policy"), "st_contract": ("สัญญา", "Contract"),
     "st_ai": ("AI ตรวจ", "AI review"), "st_legal": ("ฝ่ายกฎหมาย", "Legal review"),
     "k_score": ("คะแนนความสอดคล้อง", "Compliance score"),
@@ -610,6 +611,11 @@ def md_safe(s, keep_format: bool = False) -> str:
     if keep_format:
         return re.sub(r"\[(\*+)\]", lambda m: "\\[" + "\\*" * len(m.group(1)) + "\\]", s)
     return re.sub(r"([\\`*_\[\]#~|<>])", r"\\\1", s)
+
+
+def short_title(title: str, n: int = 60) -> str:
+    """CUAD file names end in '_EX-10.x_<id>_EX-10.x_<name>'; keep the company/date part."""
+    return re.split(r"[-_]EX-", title or "")[0][:n]
 
 
 def verifier_reason(v: dict) -> str:
@@ -889,8 +895,9 @@ _steps = [(t("st_policy"), "done" if n_rules else "now"),
           (t("st_contract"), "done" if _res else ("now" if n_rules else "")),
           (t("st_ai"), "done" if _res else ""),
           (t("st_legal"), "done" if _legal_done else ("now" if _res else ""))]
-_title = _res["report"].contract_title.split("-EX-")[0][:60] if _res else "Contract Compliance Agent"
-st.html(ui.header(_title, t("app_sub"), _steps))
+# the system name stays as the title; the open contract is shown underneath
+_sub = t("hdr_open", name=short_title(_res["report"].contract_title)) if _res else t("app_sub")
+st.html(ui.header("Contract Compliance Agent", _sub, _steps))
 
 _lang = st.session_state.lang
 _nav_key = f"view_{_lang}"
@@ -1830,7 +1837,7 @@ if view == "port":
         done_p = sum((meta.get("hitl") or {}).get(pid, {}).get("decision") in ("r_ok", "r_back") for pid in need_p)
         level_p = ui.verdict_level(rep.findings)
         entries.append((meta.get("thread") or fp.stem, (meta.get("version", 1), created_at(fp, meta)), fp, {
-            t("p_contract"): rep.contract_title.split("-EX-")[0][:48],
+            t("p_contract"): short_title(rep.contract_title, 48),
             t("p_version"): entry_label(meta.get("version", 1), meta),
             t("p_ai"): f"{VERDICT_ICON[level_p]} {t('pv_' + level_p)}",
             t("p_legal"): f"{'✅' if done_p == len(need_p) else '⏳'} {done_p}/{len(need_p)}",
