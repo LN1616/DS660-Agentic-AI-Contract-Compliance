@@ -1,18 +1,23 @@
-"""Company policy -> checkable rules.
+"""Company policy -> checkable rules, sorted by contract type.
 
-A company uploads its own procurement policy (PDF). One LLM call turns it into
-rules in the same format as data/policy_playbook.yaml. A person reviews and edits
-the rules before any contract is checked (human-in-the-loop on the policy side).
+A company uploads its own contracting policy (PDF). One LLM call turns it into rules
+and tags each rule with the contract types it is meant for ('All' = every contract).
+The rules are merged into the policy library (criteria.py), where a person reviews and
+edits them before any contract is checked (human-in-the-loop on the policy side).
 """
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from google.genai import types
 from pydantic import BaseModel, Field
 
 from . import config
+from .criteria import GENERAL, GROUPS_TH, prefix_for, renumber
 from .ingest import extract_pages
 from .trace import Trace
+
+Group = Literal[tuple(GROUPS_TH)]
 
 
 class PolicyRule(BaseModel):
@@ -23,16 +28,19 @@ class PolicyRule(BaseModel):
                                   "Say what counts as VIOLATED and what counts as DEVIATED if the policy implies it.")
     if_absent: str = Field(description="MISSING if the contract must contain this clause; COMPLIANT if having no such clause is fine")
     keywords: list[str] = Field(description="4-6 English words or phrases a contract clause on this topic would contain")
+    applies_to: list[Group] = Field(description="Contract types this rule is meant for. ['All'] if it applies to every contract")
 
 
 class PolicyRules(BaseModel):
     rules: list[PolicyRule]
 
 
-PROMPT = """Below is a company's procurement / contracting policy.
-Extract every requirement that can be checked against a SUPPLIER CONTRACT.
+PROMPT = """Below is a company's contracting / procurement policy.
+Extract every requirement that can be checked against a CONTRACT.
 Skip internal process steps that a contract cannot show (e.g. who signs a purchase order).
-One rule per requirement. The buyer is the company that wrote this policy.
+One rule per requirement. Our company is the one that wrote this policy.
+For each rule, list the contract types it is meant for. Use ['All'] when the policy applies it to every contract
+(e.g. governing law, personal data). A procurement rule usually fits Supply, Service, Maintenance, Outsourcing.
 
 POLICY:
 {policy}"""
@@ -54,6 +62,20 @@ def extract_rules(policy_pdf: Path, trace: Trace | None = None) -> list[dict]:
         d["if_absent"] = "COMPLIANT" if d["if_absent"].upper().startswith("COMPLIANT") else "MISSING"
         rules.append(d)
     return rules
+
+
+def merge_into_library(lib: dict[str, list[dict]], rules: list[dict]) -> dict[str, list[dict]]:
+    """Add extracted rules to each contract type they apply to (a rule for All goes only into All)."""
+    out = {k: list(v) for k, v in lib.items()}
+    for r in rules:
+        to = r.get("applies_to") or [GENERAL]
+        groups = [GENERAL] if GENERAL in to else to
+        clean = {k: v for k, v in r.items() if k != "applies_to"}
+        for g in groups:
+            out.setdefault(g, [])
+            if all(x.get("title") != clean.get("title") for x in out[g]):
+                out[g].append(clean)
+    return {g: renumber(v, prefix_for(g)) for g, v in out.items()}
 
 
 def rules_to_yaml(rules: list[dict]) -> str:

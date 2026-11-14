@@ -22,11 +22,13 @@ Policy rules:
 
 
 def review_single_call(pdf_path: Path, doc: ContractDocument, rules: list[dict], trace: Trace,
-                       lang: str = "th") -> ContractAuditReport:
+                       lang: str = "th", context: str = "") -> ContractAuditReport:
     client = config.client()
     uploaded = client.files.upload(file=str(pdf_path))
     rules_text = "\n".join(f"- {r['id']} {r['title']}: {r['text'].strip()} "
                            f"(If no clause on this topic: {r['if_absent']}.)" for r in rules)
+    if context:
+        rules_text = context + "\n\n" + rules_text
     schema = {"type": "object", "properties": {
         "executive_summary": {"type": "string"},
         "findings": {"type": "array", "items": finding_json_schema()}},

@@ -17,9 +17,11 @@ import yaml
 from src import config
 from src.agent import review
 from src.baseline import review_single_call
+from src.criteria import (GENERAL, GROUPS_TH, context_line, criteria_for, library_to_yaml, load_library,
+                          prefix_for, profile_contract, renumber, save_library, type_label)
 from src.document import ContractDocument
 from src.ingest import extract_pages
-from src.policy import extract_rules, rules_to_yaml
+from src.policy import extract_rules, merge_into_library, rules_to_yaml
 from src.report import save, to_frame
 from src.trace import Trace
 from eval.offline_check import DEV_SET
@@ -106,10 +108,64 @@ TEXT = {
     "v_ok": ("ผู้ตรวจซ้ำ: ผ่าน", "Verifier: passed"), "v_score": (" (ข้อความตรง {s}/100)", " (quote match {s}/100)"),
     "v_back": ("ผู้ตรวจซ้ำ: ส่งกลับ — {f}", "Verifier: sent back — {f}"),
     "log": ("Log ทุก AI call (tokens / เวลา)", "Log of every AI call (tokens / time)"),
+    "pm_auto": ("อัตโนมัติ: AI ระบุประเภทสัญญา แล้วใช้นโยบายของประเภทนั้น", "Automatic: AI finds the contract type, then uses that type's policy"),
+    "go_policy_lib": ("จัดการคลังนโยบาย →", "Manage policy library →"),
+    "go_policy_rules": ("แก้ไขกฎ →", "Edit rules →"),
+    "pm_fixed": ("กำหนดเอง: ใช้ชุดกฎเดียวกับทุกสัญญา", "Manual: one fixed rule set for every contract"),
+    "lib_status": ("คลังนโยบาย: {n} ประเภทมีนโยบาย · จัดการที่แท็บ **นโยบายบริษัท**",
+                   "Policy library: {n} contract types have a policy · manage it in the **Company policy** tab"),
+    "lib_title": ("คลังนโยบายตามประเภทสัญญา", "Policy library by contract type"),
+    "lib_help": ("Agent ระบุประเภทของสัญญาก่อน แล้วตรวจด้วยกฎ **ใช้กับทุกสัญญา** + กฎของประเภทนั้น · "
+                 "ถ้าประเภทนั้นยังไม่มีนโยบาย AI จะเขียนเกณฑ์ให้ (รหัส A-xx) และบันทึกเข้าคลังได้จากแดชบอร์ด",
+                 "The agent first finds the contract type, then checks **All contracts** rules + that type's rules · "
+                 "if a type has no policy yet, the AI writes criteria (ids A-xx) that you can save into the library from the dashboard"),
+    "lib_pick": ("เลือกประเภทสัญญาที่จะแก้ไข", "Contract type to edit"),
+    "lib_count": ("{n} ข้อ", "{n} rules"), "lib_none": ("ยังไม่มี · AI จะเขียนเกณฑ์ให้", "none yet · AI writes criteria"),
+    "lib_save": ("บันทึกคลังนโยบาย", "Save policy library"), "lib_saved": ("บันทึกแล้ว", "Saved"),
+    "lib_dl": ("ดาวน์โหลดคลังนโยบาย (YAML)", "Download library (YAML)"),
+    "lib_upload": ("เพิ่มนโยบายจาก PDF: AI แยกเป็นกฎและจัดเข้าประเภทสัญญาให้", "Add a policy PDF: AI extracts rules and files them by contract type"),
+    "lib_merge": ("แปลงและเพิ่มเข้าคลัง", "Extract and add to library"),
+    "lib_merged": ("เพิ่มแล้ว: {s}", "Added: {s}"),
+    "lib_cloud": ("บน Streamlit Cloud การแก้ไขจะหายเมื่อแอปรีสตาร์ท ดาวน์โหลด YAML เก็บไว้",
+                  "On Streamlit Cloud edits are lost when the app restarts. Download the YAML to keep them"),
+    "pb_profile": ("ระบุประเภทสัญญาและเลือกนโยบายที่ตรงประเภท ...", "Identifying the contract type and choosing its policy ..."),
+    "pb_profiled": ("{type} · ทั่วไป {g} ข้อ + {src} {p} ข้อ", "{type} · {g} general + {p} {src}"),
+    "src_library": ("นโยบายของประเภทนี้", "type policy"), "src_ai": ("เกณฑ์ที่ AI เขียน", "AI-written criteria"),
+    "pb_criteria": ("คลังยังไม่มีนโยบายสำหรับประเภทนี้ AI กำลังเขียนเกณฑ์ ...", "No policy for this type yet, the AI is writing criteria ..."),
+    "prof_title": ("ประเภทสัญญาและนโยบายที่ใช้", "Contract type and policy used"),
+    "prof_type": ("ประเภทสัญญา", "Contract type"), "prof_us": ("ฝ่ายเรา", "Our company"),
+    "prof_them": ("คู่สัญญา", "Other party"),
+    "prof_general": ("กฎที่ใช้กับทุกสัญญา {n} ข้อ", "{n} rules for all contracts"),
+    "prof_lib": ("นโยบายของ{type} {n} ข้อ (จากคลังนโยบาย)", "{n} rules from the {type} policy (library)"),
+    "prof_ai": ("คลังยังไม่มีนโยบายสำหรับ{type} AI เขียนเกณฑ์ {n} ข้อ", "No {type} policy in the library: the AI wrote {n} criteria"),
+    "prof_ai_note": ("เกณฑ์ A-xx ไม่ได้มาจากนโยบายบริษัท ฝ่ายกฎหมายควรตรวจก่อนบันทึกเป็นนโยบาย",
+                     "A-xx criteria are not company policy yet. Legal should review them before saving"),
+    "prof_save": ("บันทึกเกณฑ์เหล่านี้เป็นนโยบายของ{type}", "Save these criteria as the {type} policy"),
+    "prof_saved": ("บันทึกแล้ว สัญญาประเภทนี้ครั้งถัดไปจะใช้นโยบายนี้ แก้ไขได้ที่แท็บนโยบายบริษัท",
+                   "Saved. The next contract of this type uses this policy; edit it in the Company policy tab"),
+    "ai_tag": ("AI เขียน", "AI-written"),
 }
 
 st.session_state.setdefault("lang", "th")
 st.session_state.setdefault("policy_source", None)
+st.session_state.setdefault("rules_df", None)
+if "library" not in st.session_state:
+    st.session_state.library = load_library()
+
+
+def current_library() -> dict:
+    """The library as edited on screen (per-type tables), falling back to the saved file."""
+    lib = {}
+    for g in GROUPS_TH:
+        df = st.session_state.get(f"libdf_{g}")
+        lib[g] = df_to_rules(df) if df is not None else st.session_state.library.get(g, [])
+    return {g: v for g, v in lib.items() if v}
+
+
+def reset_library_tables(lib: dict) -> None:
+    st.session_state.library = lib
+    for k in [k for k in st.session_state if str(k).startswith(("libdf_", "lib_editor_"))]:
+        del st.session_state[k]
 
 
 def t(key: str, **kw) -> str:
@@ -120,8 +176,7 @@ def t(key: str, **kw) -> str:
 STATUS_COLOR = {"COMPLIANT": "green", "DEVIATED": "orange", "VIOLATED": "red", "MISSING": "gray"}
 RISK_COLOR = {"HIGH": "red", "MEDIUM": "orange", "LOW": "gray"}
 STATUS_ICON = {"COMPLIANT": "✅", "DEVIATED": "🟠", "VIOLATED": "🔴", "MISSING": "⚪"}
-POLICY_SOURCES = {"src_sample_th": config.ROOT / "data" / "sample_company_policy_th.yaml",
-                  "src_cuad": config.PLAYBOOK_PATH, "src_upload": None}
+POLICY_SOURCES = {"src_sample_th": config.ROOT / "data" / "sample_company_policy_th.yaml", "src_upload": None}
 COLS = ["use", "id", "title_th", "title", "text", "if_absent", "keywords"]
 
 
@@ -170,37 +225,38 @@ with st.sidebar:
     st.caption(t("tagline"))
 
     st.subheader(t("s_policy"))
-    src_key = pick(st.selectbox, "policy", list(POLICY_SOURCES), format_func=label_fn(st.session_state.lang), label_visibility="collapsed")
-    if st.session_state.policy_source != src_key:
-        path = POLICY_SOURCES[src_key]
-        st.session_state.rules_df = (rules_to_df(yaml.safe_load(path.read_text(encoding="utf-8"))["rules"])
-                                     if path else pd.DataFrame(columns=COLS))
-        st.session_state.policy_source = src_key
-    if POLICY_SOURCES[src_key] is None:
-        pol = st.file_uploader(t("policy_file"), type="pdf", key="policy_pdf")
-        if st.button(t("extract_btn"), disabled=pol is None, width="stretch"):
-            tmp = Path(tempfile.mkdtemp()) / pol.name
-            tmp.write_bytes(pol.getvalue())
-            with st.spinner(t("extracting")):
-                try:
-                    st.session_state.rules_df = rules_to_df(extract_rules(tmp))
-                except Exception as e:
-                    st.error(f"{type(e).__name__}: {str(e)[:200]}")
-    n_rules = int(st.session_state.rules_df["use"].sum()) if len(st.session_state.rules_df) else 0
-    st.caption(t("rules_used", n=n_rules))
+    policy_mode = pick(st.radio, "policy_mode", ["pm_auto", "pm_fixed"], format_func=label_fn(st.session_state.lang),
+                       label_visibility="collapsed")
+    auto = policy_mode == "pm_auto"
+    if auto:
+        n_types = sum(bool(v) for g, v in current_library().items() if g != GENERAL)
+        st.caption(t("lib_status", n=n_types))
+        st.button(t("go_policy_lib"), width="stretch", on_click=lambda: st.session_state.__setitem__("goto", "policy"))
+        n_rules = 1  # the library (or the AI) always provides criteria
+    else:
+        src_key = pick(st.selectbox, "policy", list(POLICY_SOURCES), format_func=label_fn(st.session_state.lang), label_visibility="collapsed")
+        if st.session_state.policy_source != src_key:
+            path = POLICY_SOURCES[src_key]
+            st.session_state.rules_df = (rules_to_df(yaml.safe_load(path.read_text(encoding="utf-8"))["rules"])
+                                         if path else pd.DataFrame(columns=COLS))
+            st.session_state.policy_source = src_key
+        if POLICY_SOURCES[src_key] is None:
+            pol = st.file_uploader(t("policy_file"), type="pdf", key="policy_pdf")
+            if st.button(t("extract_btn"), disabled=pol is None, width="stretch"):
+                tmp = Path(tempfile.mkdtemp()) / pol.name
+                tmp.write_bytes(pol.getvalue())
+                with st.spinner(t("extracting")):
+                    try:
+                        st.session_state.rules_df = rules_to_df(extract_rules(tmp))
+                    except Exception as e:
+                        st.error(f"{type(e).__name__}: {str(e)[:200]}")
+        n_rules = int(st.session_state.rules_df["use"].sum()) if len(st.session_state.rules_df) else 0
+        st.caption(t("rules_used", n=n_rules))
+        st.button(t("go_policy_rules"), width="stretch", on_click=lambda: st.session_state.__setitem__("goto", "policy"))
 
     st.subheader(t("s_contract"))
-    samples = available(DEV_SET)
-    source = pick(st.radio, "contract", ["c_sample", "c_upload"] if samples else ["c_upload"], format_func=label_fn(st.session_state.lang),
-                  horizontal=True, label_visibility="collapsed")
-    if not samples:
-        st.caption(t("no_samples"))
-    if source == "c_upload":
-        upload, sample = st.file_uploader(t("contract_file"), type="pdf", key="contract_pdf"), None
-    else:
-        upload = None
-        sample = pick(st.selectbox, "sample", samples, label_visibility="collapsed",
-                      format_func=lambda f: f.split("-EX-")[0][:26] + " · " + f.rsplit("-", 1)[-1][:28])
+    source, sample = "c_upload", None
+    upload = st.file_uploader(t("contract_file"), type="pdf", key="contract_pdf", label_visibility="collapsed")
 
     st.subheader(t("s_method"))
     mode = pick(st.radio, "method", ["m_agent", "m_baseline"], format_func=label_fn(st.session_state.lang), label_visibility="collapsed")
@@ -211,10 +267,25 @@ with st.sidebar:
 
 
 TEXT.update({
-    "tab_dash": ("② แดชบอร์ด", "② Dashboard"),
+    "tab_start": ("① เริ่มต้น", "① Start"),
+    "tab_dash": ("③ แดชบอร์ด", "③ Dashboard"),
     "tab_view": ("③ เปิดดูสัญญา", "③ Contract viewer"),
-    "tab_trace": ("④ เส้นทาง Agent", "④ Agent trace"),
-    "tab_port": ("⑤ สัญญาทั้งหมด", "⑤ Portfolio"),
+    "tab_trace": ("⑤ เส้นทาง Agent", "⑤ Agent trace"),
+    "tab_port": ("② สัญญาทั้งหมด", "② Portfolio"),
+    "tab_policy4": ("④ นโยบายบริษัท", "④ Company policy"),
+    "ws_title": ("สัญญาและข้อค้นพบ", "Contract and findings"),
+    "vd_block": ("ไม่ควรลงนามในสภาพนี้", "Do not sign as it stands"),
+    "vd_block_sub": ("ข้อเสี่ยงสูงที่ต้องแก้ก่อนลงนาม {n} ข้อ · ไม่ตรงนโยบายทั้งหมด {m} ข้อ",
+                     "{n} high-risk issues must be fixed before signing · {m} issues in total"),
+    "vd_warn": ("ลงนามได้หลังเจรจาแก้ไข", "Sign after negotiating changes"),
+    "vd_warn_sub": ("ไม่ตรงนโยบาย {n} ข้อ ไม่มีข้อเสี่ยงสูงที่ขัดหรือขาดหาย", "{n} issues, none high-risk violated or missing"),
+    "vd_ok": ("ลงนามได้", "OK to sign"), "vd_ok_sub": ("ทุกข้อเป็นไปตามนโยบาย", "Every rule is met"),
+    "vd_unver": ("ผู้ตรวจซ้ำยืนยันไม่ได้ {n} ข้อ ต้องให้คนตรวจ", "{n} not confirmed by the verifier, a person must check"),
+    "vd_fix": ("สิ่งที่ต้องแก้ เรียงจากเสี่ยงมากไปน้อย", "What to fix, most severe first"),
+    "vd_more": ("และอีก {n} ข้อ ดูในตารางด้านล่าง", "and {n} more in the table below"),
+    "summary_ai": ("สรุปสำหรับผู้บริหาร (เขียนโดย AI)", "Executive summary (written by AI)"),
+    "run_meta": ("{mode} · {s} วินาที · {calls} AI calls · {tok} tokens · ต้นทุน ${cost} · {model}",
+                 "{mode} · {s} s · {calls} AI calls · {tok} tokens · cost ${cost} · {model}"),
     "app_sub": ("ตรวจสัญญาจัดซื้อเทียบนโยบายบริษัท", "Supplier contract review against company policy"),
     "st_policy": ("นโยบาย", "Policy"), "st_contract": ("สัญญา", "Contract"),
     "st_ai": ("AI ตรวจ", "AI review"), "st_legal": ("ฝ่ายกฎหมาย", "Legal review"),
@@ -250,12 +321,19 @@ TEXT.update({
     "pb_single": ("Baseline: ส่งสัญญาทั้งฉบับให้ AI ครั้งเดียว ...", "Baseline: sending the whole contract in one AI call ..."),
     "skel_hint": ("ผลจะแสดงที่นี่หลังกด **วิเคราะห์สัญญา** · ระหว่างทำงานจะเห็นความคืบหน้าของ agent ทีละข้อ",
                   "Results appear here after **Analyse contract** · while it runs you see the agent's progress rule by rule"),
-    "p_open": ("เปิดผลการวิเคราะห์ที่เลือก", "Open the selected review"),
+    "p_open": ("ดูแดชบอร์ด", "Open dashboard"),
+    "p_open_pdf": ("เปิดดูสัญญา", "View contract"),
+    "p_no_pdf": ("ไม่พบไฟล์ PDF ของสัญญานี้ (อาจถูกลบเมื่อแอปรีสตาร์ท)", "The PDF for this contract was not found (it may have been removed when the app restarted)"),
     "p_pick": ("เลือกผลการวิเคราะห์เก่า", "Choose a previous review"),
+    "p_search": ("ค้นหา", "Search"),
+    "p_search_ph": ("ชื่อสัญญา ประเภท วิธี หรือวันที่", "Contract name, type, method or date"),
+    "p_click": ("คลิกแถวเพื่อเปิด", "Click a row to open"),
+    "p_type": ("ประเภท", "Type"),
+    "p_legend": ("คลิกที่แถวเพื่อเปิดทันที · สถานะ: {s}", "Click a row to open it · status: {s}"),
     "v_prev": ("หน้าก่อน", "Previous page"), "v_next": ("หน้าถัดไป", "Next page"),
     "v_of": ("หน้า {p} / {n}", "Page {p} / {n}"),
 })
-VIEWS = {"policy": "tab_policy", "dash": "tab_dash", "view": "tab_view", "trace": "tab_trace", "port": "tab_port"}
+VIEWS = {"start": "tab_start", "port": "tab_port", "dash": "tab_dash", "policy": "tab_policy4", "trace": "tab_trace"}
 
 
 def status_labels() -> dict:
@@ -309,6 +387,7 @@ def load_saved(fp: Path) -> dict | None:
             "mode": meta.get("mode", "m_baseline" if fp.stem.endswith("baseline") else "m_agent"),
             "seconds": meta.get("seconds", sum(x.get("sec", 0) for x in records if x["type"] == "llm")),
             "lang": meta.get("lang", "th"), "pdf": pdf,
+            "profile": meta.get("profile"), "criteria": meta.get("criteria") or [], "origin": meta.get("origin", ""),
             "n_pages": meta.get("n_pages") or (len(pymupdf.open(pdf)) if pdf else 1)}
 
 
@@ -336,23 +415,105 @@ st.html(ui.header(_title, t("app_sub"), _steps))
 _lang = st.session_state.lang
 _nav_key = f"view_{_lang}"
 if run or st.session_state.get("goto"):
-    st.session_state[_nav_key] = st.session_state.pop("goto", None) or "dash"
-if _nav_key not in st.session_state:
-    st.session_state[_nav_key] = st.session_state.get("choice_view", "policy")
+    st.session_state[_nav_key] = {"view": "dash"}.get(st.session_state.get("goto"), st.session_state.get("goto")) or "dash"
+    st.session_state.pop("goto", None)
+if st.session_state.get("choice_view") not in VIEWS:
+    st.session_state.choice_view = "start"
+if _nav_key not in st.session_state or st.session_state[_nav_key] not in VIEWS:
+    st.session_state[_nav_key] = st.session_state.get("choice_view", "start")
 _fmt = label_fn(_lang)
 view = st.segmented_control("nav", list(VIEWS), key=_nav_key, label_visibility="collapsed",
                             format_func=lambda v: _fmt(VIEWS[v]))
-view = view or st.session_state.get("choice_view", "policy")
+view = view or st.session_state.get("choice_view", "start")
 st.session_state.choice_view = view
 
-# ================= tab 1: policy =================
-if view == "policy":
-    st.subheader(t("rules_title"))
-    st.caption(t("rules_help"))
-    if len(st.session_state.rules_df) == 0:
-        st.info(t("rules_empty"))
-    edited = st.data_editor(
-        st.session_state.rules_df, num_rows="dynamic", hide_index=True, width="stretch", key="rules_editor",
+# ================= tab 1: start (intro + how to use) =================
+START = {
+    "th": {
+        "hero": "ตรวจสัญญาเทียบนโยบายบริษัทด้วย AI agent",
+        "lead": "อัปโหลดสัญญา PDF แล้วระบบจะระบุประเภทสัญญา เลือกนโยบายที่ตรงประเภท ตรวจทีละข้อ "
+                "และบอกว่าควรลงนามหรือไม่ พร้อมไฮไลต์ข้อความจริงในสัญญาทุกข้อ",
+        "stats": "สัญญาที่ตรวจแล้ว {n} ฉบับ · คลังนโยบายมี {k} ประเภท",
+        "what": [("ระบุประเภทสัญญา", "AI อ่านต้นสัญญา บอกประเภท (จาก 25 ประเภทของ CUAD) ฝ่ายเรา และคู่สัญญา แล้วดึงนโยบายของประเภทนั้นจากคลัง"),
+                 ("ตรวจทีละข้อ", "Agent ค้นและอ่านสัญญาเฉพาะส่วนที่เกี่ยวกับกฎแต่ละข้อ ผู้ตรวจซ้ำ (โค้ด) ยืนยันว่าข้อความที่อ้างมีอยู่จริง"),
+                 ("สรุปให้ตัดสินใจ", "ลงนามได้ไหม · สิ่งที่ต้องแก้เรียงตามความเสี่ยง · PDF พร้อมไฮไลต์ · ฝ่ายกฎหมายอนุมัติข้อเสี่ยงสูง")],
+        "how_title": "วิธีใช้ 5 ขั้น",
+        "how": [("เลือกภาษา", "แถบซ้ายบนสุด ผลที่ AI เขียนจะเป็นภาษานั้น"),
+                ("เลือกนโยบาย", "<b>อัตโนมัติ</b> (แนะนำ): ใช้คลังนโยบายตามประเภทสัญญา · <b>กำหนดเอง</b>: ใช้กฎชุดเดียวกับทุกสัญญา · แก้ไขได้ที่แท็บ ④"),
+                ("อัปโหลดสัญญา", "PDF ภาษาไทยหรืออังกฤษ ถ้าเป็นไฟล์สแกนหรือข้อความไทยอ่านไม่ออก ให้เปิดสวิตช์ vision"),
+                ("เลือกวิธีตรวจ", "<b>Agent</b>: ตรวจละเอียดและยืนยันทุกข้อ ประมาณ 1–2 นาที · <b>Baseline</b>: เรียก AI ครั้งเดียว เร็วกว่าแต่ไม่ได้ตรวจซ้ำ"),
+                ("กดวิเคราะห์สัญญา", "ระหว่างทำงานจะเห็น agent ตรวจทีละข้อ เสร็จแล้วไปที่แดชบอร์ดเอง · ดาวน์โหลด Excel ได้")],
+        "tabs_title": "แต่ละแท็บใช้ทำอะไร",
+        "tabs": [("② สัญญาทั้งหมด", "ผลที่เคยตรวจ ค้นหาและคลิกแถวเพื่อเปิด"),
+                 ("③ แดชบอร์ด", "ประเภทสัญญาและนโยบายที่ใช้ → ผลตัดสิน → สิ่งที่ต้องแก้ → สรุป → PDF ไฮไลต์ → อนุมัติ"),
+                 ("④ นโยบายบริษัท", "คลังนโยบายตามประเภทสัญญา แก้ไขกฎ หรืออัปโหลด PDF นโยบายให้ AI แยกเป็นกฎ"),
+                 ("⑤ เส้นทาง Agent", "ทุกขั้นที่ agent ค้น อ่าน ส่งคำตอบ และถูกตีกลับ พร้อม tokens เวลา ต้นทุน")],
+        "status_title": "อ่านผลอย่างไร",
+        "status": {"COMPLIANT": "เป็นไปตามนโยบาย", "DEVIATED": "มีแต่ต่างจากนโยบาย ควรเจรจา",
+                   "VIOLATED": "ขัดนโยบาย ต้องแก้ก่อนลงนาม", "MISSING": "ไม่มีข้อที่นโยบายกำหนดให้ต้องมี"},
+        "note": "ผลจาก AI เป็นการตรวจรอบแรก ข้อเสี่ยงสูงต้องให้ฝ่ายกฎหมายยืนยันก่อนใช้จริง",
+    },
+    "en": {
+        "hero": "Check contracts against company policy with an AI agent",
+        "lead": "Upload a contract PDF. The system finds the contract type, picks the matching policy, checks it rule by rule "
+                "and tells you whether to sign, with every quote highlighted in the contract.",
+        "stats": "{n} contracts reviewed · policy library covers {k} contract types",
+        "what": [("Find the contract type", "The AI reads the start of the contract, names its type (one of CUAD's 25), our company and the other party, and loads that type's policy"),
+                 ("Check rule by rule", "The agent searches and reads only the parts relevant to each rule. A verifier (code) confirms every quote exists"),
+                 ("Decide", "Sign or not · what to fix, most severe first · highlighted PDF · legal approves high-risk items")],
+        "how_title": "How to use it in 5 steps",
+        "how": [("Pick a language", "Top of the sidebar. AI-written text follows it"),
+                ("Choose the policy", "<b>Automatic</b> (recommended): the policy library by contract type · <b>Manual</b>: one rule set for every contract · edit in tab ④"),
+                ("Upload the contract", "Thai or English PDF. For scans or unreadable Thai text, keep the vision switch on"),
+                ("Choose the method", "<b>Agent</b>: thorough, every finding verified, about 1–2 minutes · <b>Baseline</b>: one AI call, faster, not verified"),
+                ("Press Analyse contract", "You see the agent work rule by rule, then the dashboard opens · Excel download available")],
+        "tabs_title": "What each tab is for",
+        "tabs": [("② Portfolio", "Every past review. Search, click a row to open it"),
+                 ("③ Dashboard", "Contract type and policy → verdict → what to fix → summary → highlighted PDF → approval"),
+                 ("④ Company policy", "Policy library by contract type. Edit rules or upload a policy PDF for the AI to split into rules"),
+                 ("⑤ Agent trace", "Every search, read, submission and send-back, with tokens, time and cost")],
+        "status_title": "How to read the results",
+        "status": {"COMPLIANT": "Meets the policy", "DEVIATED": "Present but differs, negotiate",
+                   "VIOLATED": "Breaks the policy, fix before signing", "MISSING": "A required clause is absent"},
+        "note": "AI results are a first review. Legal must confirm high-risk items before relying on them.",
+    },
+}
+
+if view == "start":
+    S = START[st.session_state.lang]
+    n_runs = len(saved_reports())
+    n_types = sum(bool(v) for g, v in current_library().items() if g != GENERAL)
+    cards = "".join(f"<div class='cc-card'><div style='font-weight:700;margin-bottom:4px'>{i}. {a}</div>"
+                    f"<div class='cc-muted'>{b}</div></div>" for i, (a, b) in enumerate(S["what"], 1))
+    steps = "".join(f"<div class='cc-how'><div class='cc-hown'>{i}</div><div><b>{a}</b><div class='cc-muted'>{b}</div></div></div>"
+                    for i, (a, b) in enumerate(S["how"], 1))
+    tabs = "".join(f"<div class='cc-iss' style='grid-template-columns:150px 1fr'><b>{a}</b><span class='cc-muted'>{b}</span></div>"
+                   for a, b in S["tabs"])
+    stat = "".join(f"<div style='display:flex;gap:10px;align-items:center;padding:4px 0'>{ui.chip(k)}<span>{v}</span></div>"
+                   for k, v in S["status"].items())
+    st.html(f"""
+<div class='cc-card' style='padding:24px 26px'>
+  <div style='font-size:26px;font-weight:700;line-height:1.3'>{S['hero']}</div>
+  <div class='cc-muted' style='font-size:15px;margin-top:6px;max-width:820px'>{S['lead']}</div>
+  <div style='margin-top:10px;font-size:13px;color:#2a54d6;font-weight:600'>{S['stats'].format(n=n_runs, k=n_types)}</div>
+</div>
+<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:12px'>{cards}</div>
+<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px'>
+  <div class='cc-card'><div class='cc-label' style='margin-bottom:8px'>{S['how_title']}</div>{steps}</div>
+  <div style='display:grid;gap:12px;align-content:start'>
+    <div class='cc-card'><div class='cc-label' style='margin-bottom:4px'>{S['tabs_title']}</div>{tabs}</div>
+    <div class='cc-card'><div class='cc-label' style='margin-bottom:6px'>{S['status_title']}</div>{stat}
+      <div class='cc-muted' style='margin-top:8px'>{S['note']}</div></div>
+  </div>
+</div>""")
+    b1, b2, _ = st.columns([1, 1, 2])
+    b1.button(t("tab_port"), width="stretch", on_click=lambda: st.session_state.__setitem__("goto", "port"))
+    b2.button(t("tab_policy4"), width="stretch", on_click=lambda: st.session_state.__setitem__("goto", "policy"))
+
+# ================= tab 4: policy =================
+def rules_editor(df: pd.DataFrame, key: str) -> pd.DataFrame:
+    return st.data_editor(
+        df, num_rows="dynamic", hide_index=True, width="stretch", key=key,
         column_config={
             "use": st.column_config.CheckboxColumn("use", width="small", default=True),
             "id": st.column_config.TextColumn(t("col_id"), width="small"),
@@ -362,6 +523,63 @@ if view == "policy":
             "if_absent": st.column_config.SelectboxColumn("if_absent", options=["MISSING", "COMPLIANT"], width="small"),
             "keywords": st.column_config.TextColumn(t("col_kw"), width="medium"),
         })
+
+
+if view == "policy" and auto:
+    st.subheader(t("lib_title"))
+    st.caption(t("lib_help"))
+    lib_now = current_library()
+    _lang = st.session_state.lang
+    chips = "".join(
+        f"<span class='cc-pill{' on' if lib_now.get(g) else ''}'>{ui.esc(type_label(g, _lang))} · "
+        f"{t('lib_count', n=len(lib_now[g])) if lib_now.get(g) else '–'}</span>" for g in GROUPS_TH)
+    st.html(f"<div class='cc-pills'>{chips}</div>")
+    st.markdown(f"**{t('lib_pick')}**")
+    group = pick(st.selectbox, "lib_group", list(GROUPS_TH), format_func=(lambda g, _l=_lang: type_label(g, _l)),
+                 label_visibility="collapsed")
+    if not lib_now.get(group):
+        st.caption(t("lib_none"))
+    key = f"libdf_{group}"
+    if key not in st.session_state:
+        st.session_state[key] = rules_to_df(st.session_state.library.get(group, []))
+    st.session_state[key] = rules_editor(st.session_state[key], f"lib_editor_{group}")
+    c1, c2 = st.columns(2)
+    if c1.button(t("lib_save"), type="primary", width="stretch"):
+        lib = {g: renumber(v, prefix_for(g)) for g, v in current_library().items()}
+        save_library(lib)
+        reset_library_tables(lib)
+        st.toast(t("lib_saved"))
+        st.rerun()
+    c2.download_button(t("lib_dl"), library_to_yaml(current_library()), "policy_library.yaml", width="stretch")
+    st.caption(t("lib_cloud"))
+    with st.expander(t("lib_upload")):
+        pol = st.file_uploader(t("policy_file"), type="pdf", key="lib_policy_pdf")
+        if st.button(t("lib_merge"), disabled=pol is None):
+            tmp = Path(tempfile.mkdtemp()) / pol.name
+            tmp.write_bytes(pol.getvalue())
+            with st.spinner(t("extracting")):
+                try:
+                    new = extract_rules(tmp)
+                    lib = merge_into_library(current_library(), new)
+                    save_library(lib)
+                    reset_library_tables(lib)
+                    added = {}
+                    for r in new:
+                        for g in (r.get("applies_to") or [GENERAL]):
+                            added[g] = added.get(g, 0) + 1
+                    st.session_state.lib_msg = t("lib_merged", s=", ".join(f"{type_label(g, _lang)} {n}" for g, n in added.items()))
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"{type(e).__name__}: {str(e)[:200]}")
+        if st.session_state.get("lib_msg"):
+            st.success(st.session_state.lib_msg)
+
+if view == "policy" and not auto:
+    st.subheader(t("rules_title"))
+    st.caption(t("rules_help"))
+    if len(st.session_state.rules_df) == 0:
+        st.info(t("rules_empty"))
+    edited = rules_editor(st.session_state.rules_df, "rules_editor")
     st.session_state.rules_df = edited
     st.download_button(t("dl_yaml"), rules_to_yaml(df_to_rules(edited)), "company_policy_rules.yaml")
 
@@ -372,7 +590,7 @@ if run:
         pdf.write_bytes(upload.getvalue())
     else:
         pdf = pdf_path(sample)
-    active = df_to_rules(st.session_state.rules_df)
+    active = [] if auto else df_to_rules(st.session_state.rules_df)
     lang = st.session_state.lang
     trace = Trace(f"{re.sub(r'[^A-Za-z0-9]+', '_', pdf.stem)[:28]}_{time.strftime('%m%d-%H%M%S')}"
                   f"_{'agent' if mode == 'm_agent' else 'baseline'}")
@@ -410,12 +628,31 @@ if run:
         prog["read"] = t("pb_read", n=len(pages), kinds=", ".join(f"{k} {v}" for k, v in kinds.items() if v),
                          p=len(doc.passages))
         draw()
+        profile, origin, context = None, "", ""
+        if auto:
+            prog["foot"] = t("pb_profile")
+            draw()
+            profile = profile_contract(doc, trace, lang)
+            lib = current_library()
+            if not lib.get(profile.contract_type):
+                prog["foot"] = t("pb_criteria")
+                draw()
+            active, origin = criteria_for(profile, lib, trace, lang)
+            context = context_line(profile)
+            prog["read"] += " · " + t("pb_profiled", type=type_label(profile.contract_type, lang),
+                                      g=sum(r["source"] == "general" for r in active),
+                                      p=sum(r["source"] != "general" for r in active), src=t(f"src_{origin}"))
+            prog["rows"] = {r["id"]: {"title": rule_title(r) + (f" · {t('ai_tag')}" if r["source"] == "ai" else ""),
+                                      "state": "wait", "tools": [], "chip": "", "note": t("pb_wait")} for r in active}
+            prog["foot"] = ""
+            draw()
         if mode == "m_agent":
-            report = review(doc, active, trace, lang=lang, on_step=on_step, on_tool=on_tool, on_done=on_done)
+            report = review(doc, active, trace, lang=lang, on_step=on_step, on_tool=on_tool, on_done=on_done,
+                            context=context)
         else:
             prog["foot"] = t("pb_single")
             draw()
-            report = review_single_call(pdf, doc, active, trace, lang=lang)
+            report = review_single_call(pdf, doc, active, trace, lang=lang, context=context)
     except Exception as e:
         st.error(f"{type(e).__name__}: {str(e)[:300]}")
         st.stop()
@@ -427,13 +664,61 @@ if run:
     shutil.copy(pdf, kept_pdf)
     (config.OUTPUT_DIR / f"{trace.run_name}.meta.json").write_text(json.dumps(
         {"mode": mode, "lang": lang, "seconds": seconds, "n_pages": len(pages), "pdf": str(kept_pdf),
-         "trace": str(trace_fp), "model": config.MODEL}, ensure_ascii=False), encoding="utf-8")
+         "trace": str(trace_fp), "model": config.MODEL,
+         "profile": profile.model_dump() if profile else None, "origin": origin,
+         "criteria": active},
+        ensure_ascii=False), encoding="utf-8")
     for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_"))]:
         del st.session_state[k]
     st.session_state.result = load_saved(js)
     st.rerun()
 
 res = st.session_state.get("result")
+
+# ================= contract workspace (PDF + findings), shown inside the dashboard =================
+def contract_workspace(res: dict) -> None:
+    if not res.get("pdf") or not Path(res["pdf"]).exists():
+        st.caption(t("p_no_pdf"))
+        return
+    findings = res["report"].findings
+    n_pages = res.get("n_pages") or 1
+    left, mid, right = st.columns([1.05, 3.1, 1.45])
+    with left:
+        ids = [r.finding.policy_id for r in findings]
+        sel = st.radio(t("v_pick"), ids, key="viewer_pick",
+                       format_func=lambda i: next(f"{STATUS_ICON[r.finding.compliance_status]} {i} · "
+                                                  f"{r.finding.clause_category}" for r in findings
+                                                  if r.finding.policy_id == i))
+        chosen = next(r for r in findings if r.finding.policy_id == sel)
+        default_page = finding_page(chosen) or 1
+        pkey = f"vp_{sel}"
+        st.session_state.setdefault(pkey, min(default_page, n_pages))
+        b1, b2, b3 = st.columns([1, 2.2, 1], vertical_alignment="center")
+        b1.button("‹", key="pg_prev", help=t("v_prev"), disabled=st.session_state[pkey] <= 1, width="stretch",
+                  on_click=lambda: st.session_state.__setitem__(pkey, st.session_state[pkey] - 1))
+        b3.button("›", key="pg_next", help=t("v_next"), disabled=st.session_state[pkey] >= n_pages, width="stretch",
+                  on_click=lambda: st.session_state.__setitem__(pkey, st.session_state[pkey] + 1))
+        page = st.session_state[pkey]
+        b2.html(f"<div style='text-align:center;font-weight:600'>{t('v_of', p=page, n=n_pages)}</div>")
+        show_all = st.toggle(t("v_all"), value=True)
+    with mid:
+        targets = [r for r in findings if finding_page(r) == page and (show_all or r is chosen)]
+        hl = tuple((r.finding.extracted_text, r.finding.compliance_status, r.finding.policy_id) for r in targets)
+        st.image(page_png(res["pdf"], int(page), hl), width="stretch")
+        if not any(h[0] for h in hl):
+            st.caption(t("v_nohl"))
+    with right:
+        f = chosen.finding
+        st.html(f"<div class='cc-card'><div class='cc-label'>{ui.esc(f.policy_id)} · {ui.esc(f.clause_category)}</div>"
+                f"<div style='margin:8px 0'>{ui.chip(f.compliance_status)} {ui.risk_chip(f.risk_level)}</div>"
+                f"<div class='cc-muted'>{ui.esc(f.clause_reference)}</div></div>")
+        st.markdown(f"**{t('issue')}**  \n{f.issue_description}")
+        st.markdown(f"**{t('action')}**  \n{f.action_required}")
+        if f.suggested_redline:
+            st.markdown(f"**{t('redline')}**")
+            st.code(f.suggested_redline, language=None, wrap_lines=True)
+
+
 
 # ================= tab 2: dashboard =================
 if view == "dash":
@@ -446,18 +731,66 @@ if view == "dash":
         c = report.counts
         findings = report.findings
         n = len(findings) or 1
-        st.caption(f"{t(res['mode'])} · {totals['llm_calls']} AI calls · "
-                   f"{totals['tokens_in'] + totals['tokens_out']:,} tokens · `{config.MODEL}`")
         if res.get("lang", "th") != st.session_state.lang:
             st.caption(t("lang_note"))
-        k = st.columns(5)
-        compliant = sum(r.finding.compliance_status == "COMPLIANT" for r in findings)
-        k[0].metric(t("k_score"), f"{100 * compliant / n:.0f}%", help=t("k_score_help"))
-        k[1].metric(t("k_high"), c["high"])
-        k[2].metric(t("k_miss"), c["missing"])
-        k[3].metric(t("k_ver"), f"{c['verified']}/{c['total']}")
-        k[4].metric(t("k_cost"), f"${totals['cost_usd']:.3f}", help=f"{res['seconds']:.0f} {t('seconds')} · {totals['llm_calls']} AI calls")
-        (st.warning if c["high"] else st.success)(f"**{t('summary')}:** {report.executive_summary}")
+        ai_ids = {x["id"] for x in res.get("criteria", []) if x.get("source") == "ai"}
+        prof = res.get("profile")
+        if prof:
+            _l = st.session_state.lang
+            th = _l == "th"
+            name = lambda x: (x.get("title_th") if th and x.get("title_th") else x.get("title")) or ""
+            ctype = prof["contract_type"]
+            tname = type_label(ctype, _l)
+            crit = res.get("criteria", [])
+            gen = [x for x in crit if x.get("source") == "general"]
+            spec = [x for x in crit if x.get("source") in ("library", "ai")]
+            items = lambda xs, note: "".join(
+                f"<li><b>{ui.esc(x['id'])}</b> {ui.esc(name(x))}"
+                + (f" — <span class='cc-muted'>{ui.esc(x.get('why') or '')}</span>" if note else "") + "</li>" for x in xs)
+            spec_head = (t("prof_ai", type=tname, n=len(spec)) if res.get("origin") == "ai"
+                         else t("prof_lib", type=tname, n=len(spec)))
+            st.html(
+                f"<div class='cc-card'><div class='cc-label'>{t('prof_title')}</div>"
+                f"<div style='display:flex;flex-wrap:wrap;gap:6px 28px;margin:6px 0 4px'>"
+                f"<div><span class='cc-muted'>{t('prof_type')}</span><br><b>{ui.esc(tname)}</b></div>"
+                f"<div><span class='cc-muted'>{t('prof_us')}</span><br><b>{ui.esc(prof['our_party'])}</b></div>"
+                f"<div><span class='cc-muted'>{t('prof_them')}</span><br><b>{ui.esc(prof['counterparty'])}</b></div></div>"
+                f"<div class='cc-muted' style='margin-bottom:8px'>{ui.esc(prof['subject'])}</div>"
+                f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 24px'>"
+                f"<div><b>{t('prof_general', n=len(gen))}</b><ul style='margin:4px 0'>{items(gen, False)}</ul></div>"
+                f"<div><b>{spec_head}</b><ul style='margin:4px 0'>{items(spec, res.get('origin') == 'ai')}</ul>"
+                + (f"<div class='cc-muted'>{t('prof_ai_note')}</div>" if res.get("origin") == "ai" else "")
+                + "</div></div></div>")
+            if res.get("origin") == "ai" and st.button(t("prof_save", type=tname)):
+                lib = current_library()
+                lib[ctype] = renumber([{k: x[k] for k in ("title", "title_th", "text", "if_absent", "keywords")}
+                                       for x in spec], prefix_for(ctype))
+                save_library(lib)
+                reset_library_tables(lib)
+                st.success(t("prof_saved"))
+
+        counts = {s: sum(r.finding.compliance_status == s for r in findings) for s in STATUS_COLOR}
+        level = ui.verdict_level(findings)
+        open_issues = [r for r in findings if r.finding.compliance_status != "COMPLIANT"]
+        n_block = sum(r.finding.risk_level == "HIGH" and r.finding.compliance_status in ("VIOLATED", "MISSING")
+                      for r in findings)
+        sub = {"block": t("vd_block_sub", n=n_block, m=len(open_issues)),
+               "warn": t("vd_warn_sub", n=len(open_issues)), "ok": t("vd_ok_sub")}[level]
+        unverified = c["total"] - c["verified"]
+        if unverified:
+            sub += " · " + t("vd_unver", n=unverified)
+        st.html(ui.verdict_panel(
+            level, t(f"vd_{level}"), sub, counts, status_labels(),
+            [(r.finding.policy_id, r.finding.clause_category, r.finding.compliance_status, r.finding.risk_level,
+              r.finding.action_required, r.finding.clause_reference) for r in open_issues],
+            t("vd_fix"), t("vd_more")))
+        with st.expander(t("summary_ai"), expanded=True):
+            st.markdown(report.executive_summary)
+        st.caption(t("run_meta", mode=t(res["mode"]), s=f"{res['seconds']:.0f}", calls=totals["llm_calls"],
+                     tok=f"{totals['tokens_in'] + totals['tokens_out']:,}", cost=f"{totals['cost_usd']:.3f}",
+                     model=config.MODEL))
+        st.subheader(t("ws_title"))
+        contract_workspace(res)
 
         counts = {s: sum(r.finding.compliance_status == s for r in findings) for s in STATUS_COLOR}
         a, b = st.columns([1, 1])
@@ -473,7 +806,8 @@ if view == "dash":
         show = f1.multiselect(t("filter"), list(STATUS_COLOR), default=list(STATUS_COLOR))
         f2.download_button(t("dl_xlsx"), res["xlsx"], res["xlsx_name"], width="stretch")
         rows = "".join(
-            f"<tr><td><b>{ui.esc(r.finding.policy_id)}</b></td><td>{ui.esc(r.finding.clause_category)}</td>"
+            f"<tr><td><b>{ui.esc(r.finding.policy_id)}</b></td><td>{ui.esc(r.finding.clause_category)}"
+            f"{' <span class=cc-muted>· ' + t('ai_tag') + '</span>' if r.finding.policy_id in ai_ids else ''}</td>"
             f"<td>{ui.chip(r.finding.compliance_status)}</td><td>{ui.risk_chip(r.finding.risk_level)}</td>"
             f"<td class='cc-muted'>{ui.esc(r.finding.clause_reference)}</td>"
             f"<td>{'✓ p.' + str(r.verified_page) if r.verified and r.verified_page else ('✓' if r.verified else '✕')}</td></tr>"
@@ -509,49 +843,6 @@ if view == "dash":
                         st.radio(t("hitl"), ["r_wait", "r_ok", "r_back"], format_func=label_fn(st.session_state.lang),
                                  horizontal=True, key=f"hitl_{f.policy_id}")
 
-# ================= tab 3: contract viewer =================
-if view == "view":
-    if not res or not res.get("pdf") or not Path(res["pdf"]).exists():
-        st.info(t("v_none"))
-    else:
-        findings = res["report"].findings
-        n_pages = res.get("n_pages") or 1
-        left, mid, right = st.columns([1.05, 3.1, 1.45])
-        with left:
-            ids = [r.finding.policy_id for r in findings]
-            sel = st.radio(t("v_pick"), ids, key="viewer_pick",
-                           format_func=lambda i: next(f"{STATUS_ICON[r.finding.compliance_status]} {i} · "
-                                                      f"{r.finding.clause_category}" for r in findings
-                                                      if r.finding.policy_id == i))
-            chosen = next(r for r in findings if r.finding.policy_id == sel)
-            default_page = finding_page(chosen) or 1
-            pkey = f"vp_{sel}"
-            st.session_state.setdefault(pkey, min(default_page, n_pages))
-            b1, b2, b3 = st.columns([1, 2.2, 1], vertical_alignment="center")
-            b1.button("‹", key="pg_prev", help=t("v_prev"), disabled=st.session_state[pkey] <= 1, width="stretch",
-                      on_click=lambda: st.session_state.__setitem__(pkey, st.session_state[pkey] - 1))
-            b3.button("›", key="pg_next", help=t("v_next"), disabled=st.session_state[pkey] >= n_pages, width="stretch",
-                      on_click=lambda: st.session_state.__setitem__(pkey, st.session_state[pkey] + 1))
-            page = st.session_state[pkey]
-            b2.html(f"<div style='text-align:center;font-weight:600'>{t('v_of', p=page, n=n_pages)}</div>")
-            show_all = st.toggle(t("v_all"), value=True)
-        with mid:
-            targets = [r for r in findings if finding_page(r) == page and (show_all or r is chosen)]
-            hl = tuple((r.finding.extracted_text, r.finding.compliance_status, r.finding.policy_id) for r in targets)
-            st.image(page_png(res["pdf"], int(page), hl), width="stretch")
-            if not any(h[0] for h in hl):
-                st.caption(t("v_nohl"))
-        with right:
-            f = chosen.finding
-            st.html(f"<div class='cc-card'><div class='cc-label'>{ui.esc(f.policy_id)} · {ui.esc(f.clause_category)}</div>"
-                    f"<div style='margin:8px 0'>{ui.chip(f.compliance_status)} {ui.risk_chip(f.risk_level)}</div>"
-                    f"<div class='cc-muted'>{ui.esc(f.clause_reference)}</div></div>")
-            st.markdown(f"**{t('issue')}**  \n{f.issue_description}")
-            st.markdown(f"**{t('action')}**  \n{f.action_required}")
-            if f.suggested_redline:
-                st.markdown(f"**{t('redline')}**")
-                st.code(f.suggested_redline, language=None, wrap_lines=True)
-
 # ================= tab 4: agent trace =================
 if view == "trace":
     if not res:
@@ -582,39 +873,55 @@ if view == "trace":
 if view == "port":
     st.subheader(t("p_title"))
     st.caption(t("p_note"))
-    files = saved_reports()
-    rows, openable = [], []
-    for fp in files:
+    _l = st.session_state.lang
+    rows, paths = [], []
+    for fp in saved_reports():
         try:
             rep = ContractAuditReport.model_validate_json(fp.read_text(encoding="utf-8"))
         except Exception:
             continue
+        meta_fp = fp.with_name(fp.stem + ".meta.json")
+        try:
+            prof = json.loads(meta_fp.read_text(encoding="utf-8")).get("profile") if meta_fp.exists() else None
+        except Exception:
+            prof = None
         cnt = {s: sum(r.finding.compliance_status == s for r in rep.findings) for s in STATUS_COLOR}
-        openable.append((fp, f"{rep.contract_title.split('-EX-')[0][:40]} · "
-                             f"{time.strftime('%d %b %H:%M', time.localtime(fp.stat().st_mtime))} · "
-                             f"{'Baseline' if fp.stem.endswith('baseline') else 'Agent'}"))
-        rows.append(
-            f"<tr><td><b>{ui.esc(rep.contract_title.split('-EX-')[0][:40])}</b></td>"
-            f"<td class='cc-muted'>{time.strftime('%d %b %H:%M', time.localtime(fp.stat().st_mtime))}</td>"
-            f"<td>{'Baseline' if fp.stem.endswith('baseline') else 'Agent'}</td>"
-            f"<td>{ui.thin_split(cnt)}</td><td>{rep.counts['high']}</td><td>{rep.counts['missing']}</td>"
-            f"<td>{rep.counts['verified']}/{rep.counts['total']}</td></tr>")
+        n = max(len(rep.findings), 1)
+        paths.append(fp)
+        rows.append({
+            t("p_contract"): rep.contract_title.split("-EX-")[0][:48],
+            t("p_type"): type_label(prof["contract_type"], _l) if prof else "–",
+            t("p_when"): time.strftime("%d %b %H:%M", time.localtime(fp.stat().st_mtime)),
+            t("p_mode"): "Baseline" if fp.stem.endswith("baseline") else "Agent",
+            t("k_score"): 100 * cnt["COMPLIANT"] / n,
+            t("p_split"): "   ".join(f"{ui.STATUS[s][1]} {cnt[s]}" for s in STATUS_COLOR),
+            t("p_high"): rep.counts["high"], t("p_miss"): rep.counts["missing"],
+            t("p_ver"): f"{rep.counts['verified']}/{rep.counts['total']}",
+        })
     if not rows:
         st.info(t("p_empty"))
     else:
-        legend = "".join(f'<span><s style="background:{ui.STATUS[s][0]}"></s>{ui.STATUS[s][1]} {ui.esc(lbl)}</span>'
-                         for s, lbl in status_labels().items())
-        st.html(f"<div class='cc-card'><div class='cc-legend' style='margin-bottom:8px'>{legend}</div>"
-                f"<table class='cc-table'><tr><th>{t('p_contract')}</th><th>{t('p_when')}</th><th>{t('p_mode')}</th>"
-                f"<th>{t('p_split')}</th><th>{t('p_high')}</th><th>{t('p_miss')}</th><th>{t('p_ver')}</th></tr>"
-                f"{''.join(rows)}</table></div>")
-        o1, o2 = st.columns([3, 1], vertical_alignment="bottom")
-        choice = o1.selectbox(t("p_pick"), range(len(openable)), format_func=lambda i: openable[i][1], key="port_pick")
-        if o2.button(t("p_open"), type="primary", width="stretch"):
-            loaded = load_saved(openable[choice][0])
+        query = st.text_input(t("p_search"), placeholder=t("p_search_ph"), key="port_q")
+        target = "dash"
+        df = pd.DataFrame(rows)
+        df["_i"] = range(len(df))
+        if query.strip():
+            q = query.strip().lower()
+            df = df[df.drop(columns="_i").astype(str).apply(lambda r: q in " ".join(r).lower(), axis=1)]
+        st.caption(t("p_legend", s=" · ".join(f"{ui.STATUS[s][1]} {lbl}" for s, lbl in status_labels().items())))
+        st.session_state.setdefault("port_ver", 0)
+        event = st.dataframe(
+            df.drop(columns="_i"), hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
+            key=f"port_table_{st.session_state.port_ver}",
+            column_config={t("k_score"): st.column_config.ProgressColumn(t("k_score"), format="%.0f%%",
+                                                                         min_value=0, max_value=100)})
+        sel = event.selection.rows if event and event.selection else []
+        if sel:
+            loaded = load_saved(paths[int(df.iloc[sel[0]]["_i"])])
+            st.session_state.port_ver += 1  # fresh table next time, so the old click does not reopen
             if loaded:
                 for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_"))]:
                     del st.session_state[k]
                 st.session_state.result = loaded
-                st.session_state.goto = "dash"
+                st.session_state.goto = target
                 st.rerun()

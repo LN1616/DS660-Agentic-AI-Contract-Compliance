@@ -91,6 +91,20 @@ h1, h2, h3 { letter-spacing: -0.01em; }
 .cc-thin { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; min-width: 120px; }
 .cc-quote { font-family: Georgia, "Times New Roman", serif; background: #f6f7fb; border-left: 0; border-radius: 8px;
   padding: 10px 12px; font-size: 14px; color: #1b2133; }
+.cc-pills { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 12px; }
+.cc-pill { font-size:12.5px; padding:3px 10px; border-radius:6px; border:1px solid #dfe2ec; background:#fff; color:#7a7f96; }
+.cc-pill.on { border-color:#2a54d6; color:#2a54d6; background:#e6ecfc; font-weight:600; }
+.cc-verdict { border:2px solid; border-radius:12px; padding:16px 18px; }
+.cc-vicon { width:44px; height:44px; border-radius:50%; color:#fff; display:grid; place-items:center; font-size:22px; font-weight:700; flex:none; }
+.cc-vtitle { font-size:24px; font-weight:700; line-height:1.25; }
+.cc-vbar { display:flex; gap:2px; height:10px; border-radius:5px; overflow:hidden; margin:14px 0 8px; }
+.cc-tally { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:14px; }
+.cc-tally span { display:inline-flex; align-items:center; gap:6px; }
+.cc-tally i { width:18px; height:18px; border-radius:50%; color:#fff; font-style:normal; font-size:11px; display:grid; place-items:center; }
+.cc-iss { display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:start; padding:8px 0; border-top:1px solid #eef0f5; }
+@media (max-width:760px) { .cc-iss { grid-template-columns:1fr; } }
+.cc-how { display:grid; grid-template-columns:30px 1fr; gap:12px; padding:8px 0; border-top:1px solid #eef0f5; }
+.cc-hown { width:28px; height:28px; border-radius:50%; background:#2a54d6; color:#fff; display:grid; place-items:center; font-weight:600; font-size:13px; }
 </style>
 """
 
@@ -213,3 +227,48 @@ def skeleton(kpis: list[str], cards: list[str]) -> str:
     c = "".join(f'<div class="cc-card"><div class="cc-label">{esc(x)}</div><div class="cc-ph" style="width:90%"></div>'
                 f'<div class="cc-ph" style="width:70%"></div><div class="cc-ph" style="width:80%"></div></div>' for x in cards)
     return f'<div class="cc-skel">{k}</div><div class="cc-skel2">{c}</div>'
+
+
+VERDICT = {  # accent, soft background, icon
+    "block": ("#b42318", "#fdecec", "✕"),
+    "warn": ("#b77d00", "#fff6e0", "!"),
+    "ok": ("#0c8a0c", "#e9f7e9", "✓"),
+}
+_SEV = {"VIOLATED": 0, "MISSING": 1, "DEVIATED": 2, "COMPLIANT": 3}
+_RSEV = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+
+
+def verdict_level(findings) -> str:
+    """Sign-off decision from the findings, computed in code (not by the LLM)."""
+    f = [r.finding for r in findings]
+    if any(x.risk_level == "HIGH" and x.compliance_status in ("VIOLATED", "MISSING") for x in f):
+        return "block"
+    if any(x.compliance_status != "COMPLIANT" for x in f):
+        return "warn"
+    return "ok"
+
+
+def verdict_panel(level: str, title: str, sub: str, counts: dict, labels: dict, issues: list,
+                  issues_title: str, more: str) -> str:
+    """Big sign-off banner + status counts + the issues to fix, most severe first.
+    issues: list of (id, topic, status, risk, action, reference)."""
+    accent, soft, icon = VERDICT[level]
+    total = max(sum(counts.values()), 1)
+    bar = "".join(f'<div title="{esc(labels[s])} {counts[s]}" style="flex:{counts[s]};background:{STATUS[s][0]}"></div>'
+                  for s in STATUS if counts.get(s))
+    tally = "".join(f'<span><i style="background:{STATUS[s][0]}">{STATUS[s][1]}</i><b>{counts.get(s, 0)}</b> {esc(labels[s])}</span>'
+                    for s in STATUS)
+    ordered = sorted(issues, key=lambda x: (_RSEV.get(x[3], 3), _SEV.get(x[2], 4)))
+    rows = "".join(
+        f'<div class="cc-iss"><div>{chip(st)} {risk_chip(rk)}</div>'
+        f'<div><b>{esc(i)} · {esc(topic)}</b><div class="cc-muted">{esc(act[:170])}{"…" if len(act) > 170 else ""}</div></div>'
+        f'<div class="cc-muted" style="text-align:right;white-space:nowrap">{esc(ref[:28])}</div></div>'
+        for i, topic, st, rk, act, ref in ordered[:6])
+    extra = f'<div class="cc-muted" style="margin-top:6px">{esc(more.format(n=len(ordered) - 6))}</div>' if len(ordered) > 6 else ""
+    issues_html = (f'<div class="cc-label" style="margin:14px 0 6px">{esc(issues_title)}</div>{rows}{extra}' if ordered else "")
+    banner = (f'<div class="cc-verdict" style="border-color:{accent};background:{soft}">'
+              f'<div style="display:flex;gap:14px;align-items:center">'
+              f'<div class="cc-vicon" style="background:{accent}">{icon}</div>'
+              f'<div><div class="cc-vtitle" style="color:{accent}">{esc(title)}</div><div>{esc(sub)}</div></div></div>'
+              f'<div class="cc-vbar">{bar}</div><div class="cc-tally">{tally}</div></div>')
+    return banner + (f'<div class="cc-card" style="margin-top:10px">{issues_html}</div>' if ordered else "")

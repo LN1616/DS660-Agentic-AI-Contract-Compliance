@@ -78,10 +78,11 @@ def verify(f: ClauseFinding, rule: dict, doc: ContractDocument) -> tuple[bool, s
     return True, "", page, score
 
 
-def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th", on_tool=None) -> ReviewedFinding:
+def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th", on_tool=None,
+               context: str = "") -> ReviewedFinding:
     prompt = (f"Policy rule {rule['id']} - {rule['title']}:\n{rule['text'].strip()}\n\n"
               f"If the contract has no clause on this topic, the status is {rule['if_absent']}.\n"
-              f"Contract: {doc.title}")
+              f"Contract: {doc.title}" + (f"\n{context}" if context else ""))
     contents = [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
     tool_log, rejections, last = [], 0, None
 
@@ -150,13 +151,14 @@ def summarize(doc: ContractDocument, findings: list[ReviewedFinding], trace: Tra
 
 
 def review(doc: ContractDocument, rules: list[dict], trace: Trace, on_step=None, lang: str = "th",
-           on_tool=None, on_done=None) -> ContractAuditReport:
-    """on_step(rule) before a rule, on_tool(rule, call) on every tool call, on_done(rule, finding) after."""
+           on_tool=None, on_done=None, context: str = "") -> ContractAuditReport:
+    """on_step(rule) before a rule, on_tool(rule, call) on every tool call, on_done(rule, finding) after.
+    context: optional line about contract type and parties (from criteria.profile_contract)."""
     findings = []
     for rule in rules:
         if on_step:
             on_step(rule)
-        findings.append(check_rule(rule, doc, trace, lang, on_tool))
+        findings.append(check_rule(rule, doc, trace, lang, on_tool, context))
         if on_done:
             on_done(rule, findings[-1])
     return ContractAuditReport(contract_title=doc.title, executive_summary=summarize(doc, findings, trace, lang),
