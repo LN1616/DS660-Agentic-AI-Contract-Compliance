@@ -3,9 +3,11 @@
 Full loop:  company policy (sample / upload PDF) -> editable rules -> contract -> agent -> report + legal review
 Run:  streamlit run app.py
 """
+import importlib
 import json
 import re
 import shutil
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -14,6 +16,27 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 import yaml
+
+# Streamlit re-runs app.py after a code update but keeps already-imported src modules in memory,
+# so a new app.py can meet an old src module (e.g. a missing argument). Reload src when its files change.
+_SRC_ORDER = ["src.config", "src.schemas", "src.trace", "src.document", "src.ingest", "src.policy",
+              "src.criteria", "src.agent", "src.baseline", "src.report", "src.translate", "src.ui"]
+
+
+def _reload_changed_src() -> None:
+    import src
+    newest = max((p.stat().st_mtime for p in (Path(__file__).parent / "src").glob("*.py")), default=0.0)
+    stamp = getattr(src, "_code_stamp", None)
+    if stamp is not None and newest <= stamp:
+        return
+    if stamp is not None or any(name in sys.modules for name in _SRC_ORDER):
+        for name in _SRC_ORDER:  # dependency order, so each module re-imports the fresh ones
+            if name in sys.modules:
+                importlib.reload(sys.modules[name])
+    src._code_stamp = newest
+
+
+_reload_changed_src()
 
 from src import config
 from src.agent import check_rule, review
