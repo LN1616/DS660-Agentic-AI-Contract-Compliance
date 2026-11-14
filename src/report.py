@@ -30,13 +30,38 @@ def to_frame(report: ContractAuditReport, hitl: dict | None = None) -> pd.DataFr
     return pd.DataFrame(rows)
 
 
-def excel_bytes(report: ContractAuditReport, hitl: dict | None = None) -> bytes:
+CONTRACT_DECISION_TH = {"pending": "รอพิจารณา", "sent": "ส่งข้อเสนอแก้ไขให้คู่สัญญาแล้ว",
+                        "approved": "อนุมัติให้ลงนาม", "rejected": "ปฏิเสธสัญญา"}
+CHANGE_TH = {"fixed": "แก้ไขแล้ว", "better": "ดีขึ้น", "open": "ยังไม่แก้", "new": "ประเด็นใหม่",
+             "worse": "แย่ลง", "same": "ผ่านเหมือนเดิม"}
+
+
+def excel_bytes(report: ContractAuditReport, hitl: dict | None = None, record: dict | None = None) -> bytes:
+    """record (optional): version, decision, decision_log, compare - the contract-level audit trail."""
     import io
+    record = record or {}
+    dec = record.get("decision") or {}
     buf = io.BytesIO()
     with pd.ExcelWriter(buf) as w:
-        pd.DataFrame([{"contract": report.contract_title, "summary": report.executive_summary, **report.counts}]
+        pd.DataFrame([{"contract": report.contract_title, "version": record.get("version", 1),
+                       "decision": CONTRACT_DECISION_TH.get(dec.get("decision", "pending")),
+                       "decided_by": dec.get("by", ""), "decided_at": dec.get("at", ""), "reason": dec.get("reason", ""),
+                       "check": "ตรวจรอบสุดท้าย (Agent)" if record.get("kind") == "final" else "ตรวจปกติ",
+                       "checked_at": record.get("created") or "",
+                       "summary": report.executive_summary, **report.counts}]
                      ).to_excel(w, sheet_name="summary", index=False)
         to_frame(report, hitl).to_excel(w, sheet_name="findings", index=False)
+        log = record.get("decision_log") or []
+        pd.DataFrame([{"at": e.get("at", ""), "decision": CONTRACT_DECISION_TH.get(e.get("decision"), e.get("decision")),
+                       "by": e.get("by", ""), "reason": e.get("reason", "")} for e in log],
+                     columns=["at", "decision", "by", "reason"]).to_excel(w, sheet_name="decision_history", index=False)
+        if record.get("compare"):
+            v = record.get("version", 2)
+            pd.DataFrame([{"policy": c["id"], "topic": c["topic"], f"v{v - 1}": c["old"], f"v{v}": c["new"],
+                           "change": CHANGE_TH.get(c["change"], c["change"]),
+                           "approved_redline_match_new": "" if c["redline_score"] is None else c["redline_score"],
+                           "approved_redline_match_old": "" if c.get("redline_old_score") is None else c["redline_old_score"]}
+                          for c in record["compare"]]).to_excel(w, sheet_name=f"compare_v{v - 1}_v{v}", index=False)
     return buf.getvalue()
 
 

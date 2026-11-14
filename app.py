@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import yaml
 
 from src import config
@@ -25,6 +26,7 @@ from src.ingest import extract_pages
 from src.policy import extract_rules, merge_into_library, rules_to_yaml
 from src.report import excel_bytes, save, to_frame
 from src.trace import Trace
+from src.translate import digest, translate
 from eval.offline_check import DEV_SET
 from eval.cuad import available, pdf_path
 from src import ui
@@ -84,8 +86,117 @@ TEXT = {
     "done": ("เสร็จใน {s} วินาที · ดูผลด้านล่าง", "Done in {s} s · results below"),
     "start_hint": ("1) ตรวจกฎในแท็บ **นโยบายบริษัท**  2) เลือกสัญญาทางซ้าย  3) กด **วิเคราะห์สัญญา** · ใช้เวลาประมาณ 1–3 นาทีต่อสัญญา",
                    "1) Check the rules in the **Company policy** tab  2) Choose a contract on the left  3) Press **Analyse contract** · about 1–3 minutes per contract"),
-    "lang_note": ("ข้อความจาก AI อยู่ในภาษาที่ใช้ตอนวิเคราะห์ กดวิเคราะห์ใหม่เพื่อเปลี่ยนภาษา",
-                  "AI-written text stays in the language used for the run. Analyse again to change it."),
+    "lang_note": ("ข้อความจาก AI แปลเป็นภาษาไทยโดย AI จากต้นฉบับภาษาอังกฤษ · ต้นฉบับคือบันทึกที่ใช้อนุมัติและส่งออก Excel",
+                  "AI text translated to English by AI from the Thai original · the original is the record used for approvals and the Excel export"),
+    "lang_fail": ("แปลไม่สำเร็จ จึงแสดงต้นฉบับ", "Translation failed, showing the original"),
+    "lang_busy": ("กำลังแปลข้อความจาก AI…", "Translating the AI text…"),
+    "orig": ("ต้นฉบับ", "Original"),
+    "cd_title": ("การตัดสินใจระดับสัญญา", "Decision on this contract"),
+    "cd_note": ("ผู้มีอำนาจตัดสินใจเป็นผู้เลือก ระบบบันทึกชื่อ เหตุผล และเวลาไว้กับผลการตรวจนี้",
+                "Made by the person responsible. The name, reason and time are saved with this review."),
+    "cd_now": ("สถานะปัจจุบัน", "Current status"),
+    "cd_by": ("โดย {by} · {at}", "by {by} · {at}"),
+    "cd_pick": ("ผลการตัดสินใจ", "Decision"),
+    "cd_by_in": ("ชื่อผู้ตัดสินใจ", "Decided by"),
+    "cd_reason_req": ("เหตุผล (จำเป็น)", "Reason (required)"),
+    "cd_reason_opt": ("หมายเหตุ (ถ้ามี)", "Note (optional)"),
+    "cd_wait": ("ยังมี {n} ข้อที่รอฝ่ายกฎหมายตรวจทาน", "{n} items are still waiting for legal review"),
+    "cd_override": ("ยังมีประเด็นความเสี่ยงสูงที่ยังไม่ได้แก้ไข {n} ข้อ การอนุมัติให้ลงนามต้องระบุเหตุผล",
+                    "{n} high-risk issues are still unresolved. Approving for signature requires a reason."),
+    "cd_no_red": ("ยังไม่มีข้อเสนอแก้ไขที่ฝ่ายกฎหมายอนุมัติ", "No redline has been approved by legal yet"),
+    "cd_need_reason": ("กรุณาระบุเหตุผล", "Please give a reason"),
+    "cd_need_by": ("กรุณาระบุชื่อผู้ตัดสินใจ", "Please enter the name of the person deciding"),
+    "cd_save": ("บันทึกการตัดสินใจ", "Save decision"),
+    "ck_title": ("สิ่งที่ต้องดำเนินการก่อนบันทึกการตัดสินใจ", "What is needed before saving a decision"),
+    "ck_all": ("ทุกทางเลือก", "Every decision"),
+    "ck_legal": ("ฝ่ายกฎหมายตรวจทานแล้ว {d}/{n} ข้อ", "Legal has reviewed {d} of {n} items"),
+    "ck_waiting": ("รอตรวจทาน", "waiting"),
+    "ck_name": ("ระบุชื่อผู้ตัดสินใจ", "Enter the name of the person deciding"),
+    "ck_red": ("มีข้อเสนอแก้ไขที่ฝ่ายกฎหมายอนุมัติอย่างน้อย 1 ข้อ (ขณะนี้ {n} ข้อ)",
+               "At least one redline approved by legal (now {n})"),
+    "ck_all_legal": ("ฝ่ายกฎหมายตรวจทานครบทุกข้อ", "Legal has reviewed every item"),
+    "ck_override": ("ยังมีความเสี่ยงสูงค้างอยู่ {n} ข้อ: ต้องระบุเหตุผลในการอนุมัติ",
+                    "{n} high-risk issues remain: a reason for approving is required"),
+    "ck_no_high": ("ไม่มีประเด็นความเสี่ยงสูงค้างอยู่", "No unresolved high-risk issues"),
+    "ck_reason": ("ระบุเหตุผลในการปฏิเสธ", "Give the reason for rejecting"),
+    "ck_where": ("ข้อที่รอตรวจทานอยู่ในส่วน \"รายละเอียดรายข้อ\" ด้านบน (ข้อที่มีตัวเลือกของฝ่ายกฎหมาย)",
+                 "Items waiting for review are in \"Details by rule\" above (the ones with legal options)"),
+    "cd_dl": ("ดาวน์โหลดข้อเสนอแก้ไขที่อนุมัติแล้ว ({n} ข้อ)", "Download approved redlines ({n})"),
+    "dec_pending": ("รอพิจารณา", "Pending"),
+    "dec_sent": ("ส่งข้อเสนอแก้ไขให้คู่สัญญาแล้ว", "Redlines sent to the other party"),
+    "dec_approved": ("อนุมัติให้ลงนาม", "Approved for signing"),
+    "dec_rejected": ("ปฏิเสธสัญญา", "Rejected"),
+    "pv_block": ("ต้องแก้ไขก่อนลงนาม", "Fix before signing"),
+    "pv_warn": ("ลงนามได้หลังเจรจา", "Sign after negotiation"),
+    "pv_ok": ("ลงนามได้", "May be signed"),
+    "p_ai": ("ผลจาก AI", "AI verdict"),
+    "p_pages": ("หน้า", "Pages"),
+    "gen_pick": ("นโยบายกลางของบริษัท (เลือกเพิ่มได้)", "Company-wide rules (optional)"),
+    "gen_pick_note": ("นโยบายตามประเภทสัญญาจะใช้โดยอัตโนมัติ ส่วนนโยบายกลางด้านล่างจะใช้เฉพาะข้อที่เลือก",
+                      "Rules for the contract type are always used; the company-wide rules below are added only when ticked"),
+    "p_version": ("ฉบับ", "Version"),
+    "kind_final": ("ตรวจรอบสุดท้าย", "Final check"),
+    "kind_first": ("ตรวจครั้งแรก", "First check"),
+    "kind_revised": ("ฉบับแก้ไข", "Revised version"),
+    "sb_title_short": ("สถานะของสัญญา · {e}", "Contract status · {e}"),
+    "sb_open_short": ("เปิด", "Open"),
+    "sb_open_entry": ("เปิด {e}", "Open {e}"),
+    "fc_title": ("ตรวจรอบสุดท้ายก่อนลงนาม", "Final check before signing"),
+    "fc_note": ("ตรวจฉบับนี้อีกครั้งด้วยวิธี Agent (ตัวตรวจซ้ำครบทุกข้อ) ด้วยกฎชุดเดิม · ราว 1–2 นาที ≈ 2 บาท · การตัดสินใจของฝ่ายกฎหมายในข้อที่ผลไม่เปลี่ยนจะคงไว้ · บันทึกเป็นรายการใหม่ในประวัติ ผลเดิมยังอยู่",
+                "Check this version again with the Agent (full verifier) and the same rules · about 1–2 min, ≈ 2 baht · legal decisions are kept where the result does not change · saved as a new entry in the history; earlier results are kept"),
+    "fc_run": ("ตรวจรอบสุดท้าย", "Run final check"),
+    "nx_final": ("ฝ่ายกฎหมายตรวจทานครบแล้ว · ก่อนอนุมัติให้ลงนาม ให้ตรวจรอบสุดท้ายด้วยวิธี Agent (ปุ่มด้านขวา) แล้วบันทึกการตัดสินใจด้านล่าง",
+                 "Legal review is complete · before approving for signature, run the final check with the Agent (button on the right), then save the decision below"),
+    "nx_newer_check": ("มีผลการตรวจที่ใหม่กว่าของฉบับนี้ เปิดรายการล่าสุดในประวัติด้านล่าง",
+                       "There is a newer check of this version; open the latest entry in the history below"),
+    "ck_final": ("ตรวจฉบับนี้ด้วยวิธี Agent แล้ว (ปุ่ม \"ตรวจรอบสุดท้าย\" ด้านบน)",
+                 "This version has been checked with the Agent (the \"Run final check\" button above)"),
+    "cmp_final_title": ("ผลตรวจรอบสุดท้าย (ฉบับที่ {v}) เทียบกับการตรวจก่อนหน้า", "Final check (version {v}) compared with the previous check"),
+    "cmp_before": ("ก่อนหน้า", "Before"),
+    "chf_fixed": ("ผ่านในรอบนี้", "Passes now"), "chf_better": ("เบาลง", "Less severe"),
+    "chf_open": ("ยังเป็นประเด็น", "Still an issue"), "chf_new": ("พบประเด็นเพิ่ม", "New issue found"),
+    "chf_worse": ("รุนแรงขึ้น", "More severe"), "chf_same": ("ผ่านทั้งสองรอบ", "Passes in both"),
+    "cmp_final_note": ("เอกสารเดียวกัน ตรวจซ้ำด้วยวิธี Agent · ข้อที่ผลเปลี่ยนต้องให้ฝ่ายกฎหมายตรวจทานใหม่ ข้อที่ไม่เปลี่ยนคงการตัดสินใจเดิมไว้",
+                       "Same document, checked again with the Agent · items whose result changed need a new legal review; unchanged items keep their earlier decision"),
+    "sb_title": ("สถานะของสัญญา · ฉบับที่ {v} จาก {n}", "Contract status · version {v} of {n}"),
+    "sb_details": ("ดูรายละเอียดและหมายเหตุด้านล่าง ↓", "See details and comments below ↓"),
+    "sb_next": ("ขั้นตอนถัดไป", "Next step"),
+    "sb_history": ("ประวัติฉบับและการตัดสินใจ ({n} ฉบับ)", "Versions and decision history ({n})"),
+    "sb_open": ("เปิดฉบับที่ {v}", "Open version {v}"),
+    "tl_here": ("ฉบับที่เปิดอยู่", "open now"),
+    "nx_review": ("ฝ่ายกฎหมายตรวจทานอีก {n} ข้อในส่วนรายละเอียดรายข้อ แล้วบันทึกการตัดสินใจด้านล่าง",
+                  "Legal reviews {n} more items under Details by rule, then the decision is saved below"),
+    "nx_decide": ("ฝ่ายกฎหมายตรวจทานครบแล้ว ผู้มีอำนาจบันทึกการตัดสินใจด้านล่าง",
+                  "Legal review is complete. The person responsible saves the decision below"),
+    "nx_revise": ("รอคู่สัญญาส่งฉบับแก้ไขกลับมา แล้วอัปโหลดในช่องด้านล่างเพื่อตรวจด้วยนโยบายชุดเดิม",
+                  "Wait for the other party's revised version, then upload it below to check it against the same rules"),
+    "nx_rejected": ("หากคู่สัญญาส่งฉบับแก้ไขมา อัปโหลดในช่องด้านล่างเพื่อตรวจใหม่ หากไม่มี ถือว่าสิ้นสุดกระบวนการ",
+                    "If the other party sends a revised version, upload it below to check again; otherwise the process ends here"),
+    "nx_done": ("อนุมัติให้ลงนามแล้ว ไม่มีขั้นตอนเพิ่มเติมในระบบ", "Approved for signing. No further steps in the system"),
+    "nx_old": ("ฉบับนี้ไม่ใช่ฉบับล่าสุด ฉบับล่าสุดคือฉบับที่ {v}", "This is not the latest version. The latest is version {v}"),
+    "rev_title": ("อัปโหลดสัญญาฉบับแก้ไข (ฉบับที่ {v})", "Upload the revised contract (version {v})"),
+    "rev_note": ("ระบบจะตรวจด้วยกฎชุดเดิม แล้วเทียบผลกับฉบับก่อนหน้าทีละข้อ ประวัติการตัดสินใจเดิมยังคงอยู่",
+                 "Checked with the same rules, then compared rule by rule with the previous version. Earlier decisions are kept"),
+    "rev_agent": ("ตรวจด้วยวิธี Agent (นับเป็นการตรวจรอบสุดท้ายของฉบับนี้) · ราว 1–2 นาที ≈ 2 บาท",
+                  "Check with the Agent (counts as this version's final check) · about 1–2 min, ≈ 2 baht"),
+    "rev_agent_note": ("ฉบับก่อนตรวจด้วย Single call ตารางเทียบจึงรวมทั้งสิ่งที่คู่สัญญาแก้และความต่างของวิธีตรวจ ให้อ่านประกอบกับข้อเสนอแก้ไขที่พบในฉบับใหม่",
+                       "The previous version was checked with Single call, so the comparison mixes the other party's edits with differences between the methods; read it together with the approved redlines found in the new text"),
+    "rev_up": ("ไฟล์ PDF ฉบับแก้ไข", "Revised PDF"),
+    "rev_title_other": ("มีฉบับแก้ไขใหม่จากคู่สัญญา? อัปโหลดฉบับที่ {v}", "New version from the other party? Upload version {v}"),
+    "rev_run": ("ตรวจฉบับที่ {v}", "Check version {v}"),
+    "cmp_title": ("เทียบกับฉบับก่อนหน้า: ฉบับที่ {p} → ฉบับที่ {v}", "Compared with the previous version: v{p} → v{v}"),
+    "cmp_change": ("การเปลี่ยนแปลง", "Change"),
+    "cmp_redline": ("ข้อเสนอแก้ไขที่อนุมัติ", "Approved redline"),
+    "cmp_note": ("คำนวณด้วยโค้ด: เทียบสถานะรายข้อ และค้นหาข้อความที่เสนอแก้ในฉบับใหม่ด้วยตัวเทียบข้อความเดียวกับตัวตรวจซ้ำ (ตรง ≥ 88/100 ในฉบับใหม่ และต้องไม่ตรงกับฉบับเดิมอยู่แล้ว จึงถือว่าพบ) · คู่สัญญาอาจปรับถ้อยคำ จึงควรให้ฝ่ายกฎหมายยืนยัน",
+                 "Computed in code: status per rule, and a search for each approved redline in the new text using the verifier's quote matcher (≥ 88/100 in the new text, and not already matching the old text, counts as found) · the other party may reword it, so legal should confirm"),
+    "ch_fixed": ("แก้ไขแล้ว", "Fixed"), "ch_better": ("ดีขึ้น", "Improved"), "ch_open": ("ยังไม่แก้", "Still open"),
+    "ch_new": ("ประเด็นใหม่", "New issue"), "ch_worse": ("แย่ลง", "Worse"), "ch_same": ("ผ่านเหมือนเดิม", "Still compliant"),
+    "rl_found": ("พบในฉบับใหม่ ({s}/100)", "found in new text ({s}/100)"),
+    "rl_missing": ("ไม่พบ ({s}/100)", "not found ({s}/100)"),
+    "rl_unclear": ("บอกไม่ได้: ถ้อยคำใกล้ต้นฉบับเดิม (ฉบับเดิม {s0} · ฉบับใหม่ {s}) ให้ฝ่ายกฎหมายตรวจ",
+                   "Can't tell: wording close to the original (old {s0} · new {s}), legal should check"),
+    "p_legal": ("ฝ่ายกฎหมายตรวจทาน", "Legal review"),
+    "p_decision": ("การตัดสินใจ", "Decision"),
     "seconds": ("วินาที", "s"),
     "k_total": ("หัวข้อที่ตรวจ", "Rules checked"), "k_high": ("ความเสี่ยงสูง", "High risk"),
     "k_med": ("ความเสี่ยงปานกลาง", "Medium risk"), "k_miss": ("ข้อที่ขาดหายไป", "Missing clauses"),
@@ -101,6 +212,12 @@ TEXT = {
     "ver_found": ("ตัวตรวจซ้ำ: พบข้อความนี้จริงในหน้า {p} (ตรง {s}/100)", "Verifier: quote found on page {p} (match {s}/100)"),
     "ver_missing": ("ตัวตรวจซ้ำ: อ่านข้อที่เกี่ยวข้องครบแล้วก่อนสรุปว่าไม่มี", "Verifier: relevant passages were read before concluding MISSING"),
     "ver_fail": ("ตัวตรวจซ้ำไม่ผ่าน: ต้องให้คนตรวจข้อนี้เอง", "Verifier failed: a person must check this item"),
+    "ver_unchecked": ("ไม่ได้ตรวจ: วิธี Single call ไม่ได้เปิดอ่านข้อที่เกี่ยวข้องก่อนสรุปว่าสัญญาไม่มีข้อนี้ จึงยืนยันไม่ได้ ควรให้คนตรวจ หรือตรวจด้วยวิธี Agent",
+                      "Not checked: Single call did not read the relevant passages before concluding there is no clause, so it cannot be confirmed. A person should check it, or use the Agent method"),
+    "unchecked": ("ไม่ได้ตรวจ", "Not checked"),
+    "needs_review": ("ต้องให้คนตรวจ", "Needs human review"),
+    "ref_none": ("ไม่พบในสัญญา", "Not found"),
+    "party_none": ("ไม่ระบุในสัญญา", "Not stated in the contract"),
     "issue": ("ประเด็น", "Issue"), "action": ("สิ่งที่ต้องทำ", "Action required"),
     "redline": ("ข้อเสนอแก้ไข (redline)", "Suggested redline"),
     "hitl": ("การตรวจทานโดยฝ่ายกฎหมาย (human-in-the-loop)", "Legal review (human-in-the-loop)"),
@@ -123,6 +240,24 @@ TEXT = {
     "trace_row": ("{id} · {cat} — {n} AI calls, ส่งกลับ {r} ครั้ง", "{id} · {cat} — {n} AI calls, sent back {r} times"),
     "v_ok": ("ตัวตรวจซ้ำ: ผ่าน", "Verifier: passed"), "v_score": (" (ข้อความตรง {s}/100)", " (quote match {s}/100)"),
     "v_back": ("ตัวตรวจซ้ำ: ส่งกลับ — {f}", "Verifier: sent back — {f}"),
+    "vx_title": ("ตัวตรวจซ้ำ (โค้ด ไม่ใช่ AI) ตรวจคำตอบทุกข้อด้วย 2 เกณฑ์", "The verifier (code, not AI) checks every answer against 2 criteria"),
+    "vx_1": ("เกณฑ์ 1 · ข้อความที่อ้างมีอยู่จริงในสัญญา", "Criterion 1 · the quoted text really is in the contract"),
+    "vx_1d": ("ใช้กับคำตอบที่อ้างข้อความ (COMPLIANT / DEVIATED / VIOLATED) · เทียบข้อความที่ AI อ้างกับข้อความในสัญญา (rapidfuzz) ต้องตรงอย่างน้อย 88/100 · ผ่านแล้วได้เลขหน้าที่พบจริงเพื่อไฮไลต์ใน PDF",
+              "For answers that quote the contract (COMPLIANT / DEVIATED / VIOLATED) · the quote is matched against the contract text (rapidfuzz) and must score at least 88/100 · a pass gives the real page for the PDF highlight"),
+    "vx_2": ("เกณฑ์ 2 · อ่านก่อนสรุปว่า \"ไม่มี\"", "Criterion 2 · read before concluding \"no clause\""),
+    "vx_2d": ("ใช้กับคำตอบ MISSING และ COMPLIANT ที่ไม่มีข้อความอ้าง · AI ต้องเปิดอ่าน (read_passage) 3 ส่วนที่เกี่ยวกับกฎนี้มากที่สุดครบก่อน ไม่ใช่ดูแค่ผลค้นหา",
+              "For MISSING answers and COMPLIANT answers without a quote · the AI must have opened (read_passage) the 3 passages most related to the rule, not just looked at search results"),
+    "vx_fail": ("ไม่ผ่าน → ส่งเหตุผลกลับให้ AI แก้ได้สูงสุด 2 ครั้ง → ยังไม่ผ่าน ติดป้าย \"ต้องให้คนตรวจ\" และเข้าคิวฝ่ายกฎหมาย",
+                "Not passed → the reason goes back to the AI, at most twice → still not passed: marked \"needs human review\" and queued for legal"),
+    "v_ok1": ("ตัวตรวจซ้ำ: ผ่านเกณฑ์ 1 · ข้อความที่อ้างตรงกับสัญญา {s}/100", "Verifier: passed criterion 1 · quote matches the contract {s}/100"),
+    "v_ok2": ("ตัวตรวจซ้ำ: ผ่านเกณฑ์ 2 · อ่านส่วนที่เกี่ยวข้องครบก่อนสรุปว่าไม่มี", "Verifier: passed criterion 2 · related passages were read before concluding no clause"),
+    "v_c1": ("ตัวตรวจซ้ำ: ส่งกลับ (เกณฑ์ 1) · ข้อความที่ AI อ้างตรงกับสัญญาเพียง {s}/100 (ต้องได้อย่างน้อย 88) · ให้อ่านส่วนนั้นใหม่และคัดลอกข้อความให้ตรง",
+             "Verifier: sent back (criterion 1) · the quote matches the contract only {s}/100 (88 needed) · read the passage again and copy it exactly"),
+    "v_c1e": ("ตัวตรวจซ้ำ: ส่งกลับ (เกณฑ์ 1) · AI ไม่ได้อ้างข้อความจากสัญญา · ให้คัดลอกประโยคจริงมาประกอบ",
+              "Verifier: sent back (criterion 1) · the AI gave no quote · it must copy the actual sentence"),
+    "v_c2": ("ตัวตรวจซ้ำ: ส่งกลับ (เกณฑ์ 2) · AI สรุปว่าสัญญาไม่มีข้อนี้ แต่ยังไม่ได้เปิดอ่านส่วน {ids} · ให้อ่านก่อนแล้วค่อยสรุป",
+             "Verifier: sent back (criterion 2) · the AI concluded there is no clause but has not opened passages {ids} · read them first"),
+    "v_sent": ("ข้อความที่ส่งให้ AI: {f}", "Message sent to the AI: {f}"),
     "log": ("Log ทุก AI call (tokens / เวลา)", "Log of every AI call (tokens / time)"),
     "pm_auto": ("อัตโนมัติ: AI ระบุประเภทสัญญา แล้วใช้นโยบายของประเภทนั้น", "Automatic: AI finds the contract type, then uses that type's policy"),
     "go_policy_lib": ("จัดการคลังนโยบาย →", "Manage policy library →"),
@@ -308,9 +443,16 @@ with st.sidebar:
     policy_mode = pick(st.radio, "policy_mode", ["pm_auto", "pm_fixed"], format_func=label_fn(st.session_state.lang),
                        label_visibility="collapsed")
     auto = policy_mode == "pm_auto"
+    general_picked = []
     if auto:
         n_types = sum(bool(v) for g, v in current_library().items() if g != GENERAL)
         st.caption(t("lib_status", n=n_types))
+        gen_rules = current_library().get(GENERAL, [])
+        if gen_rules:
+            st.markdown(f"**{t('gen_pick')}**")
+            st.caption(t("gen_pick_note"))
+            general_picked = [r["id"] for r in gen_rules
+                              if st.checkbox(f"{r['id']} · {rule_title(r)}", key=f"gen_{r['id']}", value=False)]
         st.button(t("go_policy_lib"), width="stretch", on_click=lambda: st.session_state.__setitem__("goto", "policy"))
         n_rules = 1  # the library (or the AI) always provides criteria
     else:
@@ -438,6 +580,47 @@ def finding_page(r) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def md_safe(s, keep_format: bool = False) -> str:
+    """AI text for st.markdown. Contracts contain redactions like [***] that markdown reads as bold/italic.
+    keep_format=True (executive summary) only escapes bracketed asterisks and keeps the AI's lists and bold."""
+    s = s or ""
+    if keep_format:
+        return re.sub(r"\[(\*+)\]", lambda m: "\\[" + "\\*" * len(m.group(1)) + "\\]", s)
+    return re.sub(r"([\\`*_\[\]#~|<>])", r"\\\1", s)
+
+
+def verifier_reason(v: dict) -> str:
+    """Plain-language reason for a send-back, naming which of the verifier's 2 criteria failed.
+    The raw feedback is English because it is written for the AI; it is shown separately."""
+    fb = v.get("feedback") or ""
+    if fb.startswith("Before concluding"):
+        ids = re.search(r"\[([^\]]*)\]", fb)
+        return t("v_c2", ids=ids.group(1).replace("'", "").replace('"', "") if ids else "")
+    if fb.startswith("extracted_text is empty"):
+        return t("v_c1e")
+    if v.get("score") is not None:
+        return t("v_c1", s=f"{v['score']:.0f}")
+    return t("v_back", f=fb)
+
+
+def ref_text(f) -> str:
+    """Contract reference in the UI language; the model writes 'Not found' in English when there is no clause."""
+    ref = (f.clause_reference or "").strip()
+    return t("ref_none") if not ref or re.fullmatch(r"(?i)(not\s*found|n/?a|none|-)\.?", ref) else ref
+
+
+def party_text(s) -> str:
+    """Party name, or 'not stated' when the contract only has a template placeholder such as [ชื่อบริษัท / องค์กร]."""
+    s = (s or "").strip()
+    return t("party_none") if not s or re.fullmatch(r"[\[(<{].*[\])>}]|_+|\.+", s) else s
+
+
+def review_chip(r) -> str:
+    """Extra chip when the verifier failed, so a green COMPLIANT never stands alone on an unchecked finding."""
+    return "" if r.verified else (" <span class='cc-chip' style='background:#fbe6e6'><i style='background:#d03b3b'>!</i>"
+                                  f"{ui.esc(t('needs_review'))}</span>")
+
+
 @st.cache_data(show_spinner=False, max_entries=64)
 def page_png(pdf: str, page: int, highlights: tuple) -> bytes:
     return ui.render_page(pdf, page, highlights)
@@ -479,7 +662,11 @@ def load_saved(fp: Path) -> dict | None:
             "seconds": meta.get("seconds", sum(x.get("sec", 0) for x in records if x["type"] == "llm")),
             "lang": meta.get("lang", "th"), "pdf": pdf,
             "profile": meta.get("profile"), "criteria": meta.get("criteria") or [], "origin": meta.get("origin", ""),
-            "path": str(fp), "hitl": meta.get("hitl") or {},
+            "path": str(fp), "hitl": meta.get("hitl") or {}, "decision": meta.get("decision") or {},
+            "decision_log": meta.get("decision_log") or [],
+            "thread": meta.get("thread") or fp.stem, "version": meta.get("version", 1),
+            "parent": meta.get("parent"), "compare": meta.get("compare") or [],
+            "kind": meta.get("kind", "review"), "created": meta.get("created"),
             "n_pages": meta.get("n_pages") or (len(pymupdf.open(pdf)) if pdf else 1)}
 
 
@@ -491,6 +678,147 @@ def save_hitl(res: dict, pid: str, decision: str, comment: str = "") -> None:
                                         "at": time.strftime("%Y-%m-%d %H:%M")}
     meta_fp.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
     res["hitl"] = meta["hitl"]
+
+
+DECISION_STYLE = {"pending": ("⏳", "#6b7184", "#f1f3f8"), "sent": ("📤", "#2a54d6", "#e8eefc"),
+                  "approved": ("✅", "#0a7d0a", "#e6f6e6"), "rejected": ("⛔", "#b42d2d", "#fbe6e6")}
+VERDICT_ICON = {"block": "🔴", "warn": "🟠", "ok": "🟢"}
+
+
+def decision_label(key: str) -> str:
+    return f"{DECISION_STYLE[key][0]} {t('dec_' + key)}"
+
+
+def decision_badge(key: str) -> str:
+    icon, ink, bg = DECISION_STYLE[key]
+    return (f"<span class='cc-chip' style='background:{bg};color:{ink};font-size:13px;padding:4px 12px'>"
+            f"{icon} {ui.esc(t('dec_' + key))}</span>")
+
+
+def needs_legal_one(r) -> bool:
+    """A person must review: high risk, not confirmed by the verifier, or there is a redline to approve or send back."""
+    f = r.finding
+    return (f.risk_level == "HIGH" or not r.verified
+            or (f.compliance_status != "COMPLIANT" and bool(f.suggested_redline.strip())))
+
+
+def needs_legal(findings) -> list[str]:
+    """Policy ids of the findings that need a legal decision."""
+    return [r.finding.policy_id for r in findings if needs_legal_one(r)]
+
+
+def save_decision(res: dict, decision: str, by: str, reason: str) -> None:
+    """Contract-level decision by a person, saved with the run; earlier decisions are kept in a log."""
+    meta_fp = Path(res["path"]).with_name(Path(res["path"]).stem + ".meta.json")
+    meta = json.loads(meta_fp.read_text(encoding="utf-8")) if meta_fp.exists() else {}
+    entry = {"decision": decision, "by": by, "reason": reason, "at": time.strftime("%Y-%m-%d %H:%M")}
+    meta["decision"] = entry
+    meta.setdefault("decision_log", []).append(entry)
+    meta_fp.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    res["decision"] = entry
+    res["decision_log"] = meta["decision_log"]
+
+
+def read_meta(fp: Path) -> dict:
+    mf = fp.with_name(fp.stem + ".meta.json")
+    try:
+        return json.loads(mf.read_text(encoding="utf-8")) if mf.exists() else {}
+    except Exception:
+        return {}
+
+
+def thread_versions(thread: str) -> list[tuple[int, Path, dict]]:
+    """All saved versions of one contract (v1, revised v2, ...), oldest first."""
+    out = [(m.get("version", 1), fp, m) for fp in saved_reports()
+           for m in [read_meta(fp)] if (m.get("thread") or fp.stem) == thread]
+    return sorted(out, key=lambda x: (x[0], created_at(x[1], x[2])))
+
+
+def created_at(fp: Path, meta: dict) -> str:
+    return meta.get("created") or time.strftime("%Y-%m-%d %H:%M", time.localtime(fp.stat().st_mtime))
+
+
+def entry_label(v: int, meta: dict) -> str:
+    """v1 · first check / v1 · final check / v2 · revised version."""
+    if meta.get("kind") == "final":
+        return f"v{v} · {t('kind_final')}"
+    return f"v{v} · {t('kind_first') if v == 1 else t('kind_revised')}"
+
+
+SEVERITY = {"COMPLIANT": 0, "DEVIATED": 1, "MISSING": 2, "VIOLATED": 2}
+
+
+def compare_versions(old_rep, old_hitl: dict, new_rep, new_doc, old_doc=None) -> list[dict]:
+    """Per rule: status in the previous version -> status now, and whether each redline legal approved
+    now appears in the new text (same quote matcher as the verifier). Computed in code, saved with the run.
+    A redline that already matched the OLD text (wording close to the original) cannot show adoption,
+    so it is reported as unclear instead of found."""
+    new_by = {r.finding.policy_id: r for r in new_rep.findings}
+    rows = []
+    for o in old_rep.findings:
+        pid = o.finding.policy_id
+        n = new_by.get(pid)
+        if n is None:
+            continue
+        a, b = SEVERITY.get(o.finding.compliance_status, 1), SEVERITY.get(n.finding.compliance_status, 1)
+        change = ("fixed" if a and not b else "better" if b < a else "open" if a and a == b
+                  else "new" if not a and b else "worse" if b > a else "same")
+        red, score, old_score = o.finding.suggested_redline.strip(), None, None
+        if red and (old_hitl.get(pid) or {}).get("decision") == "r_ok":
+            score = round(new_doc.find_quote(red)[1])
+            old_score = round(old_doc.find_quote(red)[1]) if old_doc is not None else None
+        rows.append({"id": pid, "topic": n.finding.clause_category, "old": o.finding.compliance_status,
+                     "new": n.finding.compliance_status, "change": change, "redline_score": score, "redline_old_score": old_score})
+    return rows
+
+
+def redline_letter(res: dict, items) -> bytes:
+    """Approved redlines as a plain list to send to the other party (in the contract's language, English)."""
+    lines = [f"Proposed amendments: {res['report'].contract_title}", f"Date: {time.strftime('%d %B %Y')}", ""]
+    for i, r in enumerate(items, 1):
+        f = r.finding
+        ref = f.clause_reference if ref_text(f) != t("ref_none") else "New clause"
+        lines += [f"{i}. {f.clause_category} ({ref})", "   Proposed wording:", f"   {f.suggested_redline.strip()}", ""]
+    return "\n".join(lines).encode("utf-8")
+
+
+def ensure_translation(res: dict, lang: str) -> None:
+    """When the UI language differs from the run's, translate the AI text once and cache it with the run.
+    Only items that are new or changed (e.g. after a send-back re-check) are sent."""
+    if res.get("lang", "th") == lang or not res.get("path"):
+        return
+    meta_fp = Path(res["path"]).with_name(Path(res["path"]).stem + ".meta.json")
+    meta = json.loads(meta_fp.read_text(encoding="utf-8")) if meta_fp.exists() else {}
+    cache = meta.setdefault("tr", {}).setdefault(lang, {})
+    src = {"summary": res["report"].executive_summary}
+    for r in res["report"].findings:
+        src[f"{r.finding.policy_id}.issue"] = r.finding.issue_description
+        src[f"{r.finding.policy_id}.action"] = r.finding.action_required
+    todo = {k: v for k, v in src.items() if v and cache.get(k, {}).get("src") != digest(v)}
+    if todo:
+        trace = Trace(f"translate_{lang}_{time.strftime('%m%d-%H%M%S')}")
+        with st.spinner(t("lang_busy")):
+            out = translate(todo, lang, trace)
+        trace.save()
+        for k, v in out.items():
+            cache[k] = {"src": digest(todo[k]), "text": v}
+        meta_fp.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    res["tr"] = {k: v["text"] for k, v in cache.items() if v.get("src") == digest(src.get(k, ""))}
+
+
+def ai_text(res: dict, key: str, original: str) -> tuple[str, bool]:
+    """Translated text for the current UI language if there is one, else the original."""
+    if res.get("lang", "th") != st.session_state.lang and key in (res.get("tr") or {}):
+        return res["tr"][key], True
+    return original, False
+
+
+def show_ai(res: dict, key: str, label: str, original: str) -> None:
+    text, translated = ai_text(res, key, original)
+    st.markdown(f"**{label}**  \n{md_safe(text)}")
+    if translated:
+        with st.popover(f"{t('orig')} ({'ไทย' if res.get('lang', 'th') == 'th' else 'English'})"):
+            st.markdown(md_safe(original))
 
 
 def on_decision(pid: str) -> None:
@@ -533,7 +861,7 @@ _res = st.session_state.get("result")
 _legal_done = bool(_res) and all(
     st.session_state.get(f"hitl_{r.finding.policy_id}",
                          (_res.get("hitl") or {}).get(r.finding.policy_id, {}).get("decision")) == "r_ok"
-    for r in _res["report"].findings if r.finding.risk_level == "HIGH" or not r.verified)
+    for r in _res["report"].findings if needs_legal_one(r))
 _steps = [(t("st_policy"), "done" if n_rules else "now"),
           (t("st_contract"), "done" if _res else ("now" if n_rules else "")),
           (t("st_ai"), "done" if _res else ""),
@@ -820,13 +1148,25 @@ if view == "policy" and not auto:
     st.download_button(t("dl_yaml"), rules_to_yaml(df_to_rules(edited)), "company_policy_rules.yaml")
 
 # ================= run: live progress board =================
-if run:
-    if upload is not None:
+revise = st.session_state.pop("revise", None)  # revised version uploaded from the dashboard
+if run or revise:
+    parent_fp, parent_meta = None, {}
+    if revise:
+        pdf = Path(tempfile.mkdtemp()) / revise["name"]
+        pdf.write_bytes(revise["bytes"])
+        parent_fp = Path(revise["parent"])
+        parent_meta = read_meta(parent_fp)
+        # same rules as the previous check; a final check always uses the Agent (full verifier)
+        mode = ("m_agent" if revise.get("kind") == "final" or revise.get("agent")
+                else parent_meta.get("mode", mode))
+        active = parent_meta.get("criteria") or []
+    elif upload is not None:
         pdf = Path(tempfile.mkdtemp()) / upload.name
         pdf.write_bytes(upload.getvalue())
+        active = [] if auto else df_to_rules(st.session_state.rules_df)
     else:
         pdf = pdf_path(sample)
-    active = [] if auto else df_to_rules(st.session_state.rules_df)
+        active = [] if auto else df_to_rules(st.session_state.rules_df)
     lang = st.session_state.lang
     trace = Trace(f"{re.sub(r'[^A-Za-z0-9]+', '_', pdf.stem)[:28]}_{time.strftime('%m%d-%H%M%S')}"
                   f"_{'agent' if mode == 'm_agent' else 'baseline'}")
@@ -865,7 +1205,13 @@ if run:
                          p=len(doc.passages))
         draw()
         profile, origin, context = None, "", ""
-        if auto:
+        if revise:
+            pp = parent_meta.get("profile")
+            origin = parent_meta.get("origin", "")
+            if pp:
+                context = (f"Contract type: {pp['contract_type']}. Our company: {pp['our_party']}. "
+                           f"Other party: {pp['counterparty']}.")
+        elif auto:
             prog["foot"] = t("pb_profile")
             draw()
             profile = profile_contract(doc, trace, lang)
@@ -873,7 +1219,7 @@ if run:
             if not lib.get(profile.contract_type):
                 prog["foot"] = t("pb_criteria")
                 draw()
-            active, origin = criteria_for(profile, lib, trace, lang)
+            active, origin = criteria_for(profile, lib, trace, lang, general_ids=general_picked)
             if origin == "ai":  # keep them as a DRAFT policy for this type; a person confirms or edits later
                 src_name = doc.title.split("-EX-")[0][:40]
                 lib[profile.contract_type] = renumber(
@@ -908,19 +1254,182 @@ if run:
     (config.OUTPUT_DIR / "pdfs").mkdir(exist_ok=True)
     kept_pdf = config.OUTPUT_DIR / "pdfs" / f"{trace.run_name}.pdf"
     shutil.copy(pdf, kept_pdf)
+    version_info = {"thread": trace.run_name, "version": 1}
+    if revise:
+        parent_rep = ContractAuditReport.model_validate_json(parent_fp.read_text(encoding="utf-8"))
+        old_doc = (ContractDocument("prev", extract_pages(Path(parent_meta["pdf"]), use_vision=False))
+                   if parent_meta.get("pdf") and Path(parent_meta["pdf"]).exists() else None)
+        if revise.get("kind") == "final":
+            # same document, checked again with the Agent: same version number, recorded as its own entry.
+            # Legal decisions carry over only where the finding's status did not change.
+            prev_status = {r.finding.policy_id: r.finding.compliance_status for r in parent_rep.findings}
+            carried = {pid: {**h, "carried": True} for pid, h in (parent_meta.get("hitl") or {}).items()
+                       if any(r.finding.policy_id == pid and r.finding.compliance_status == prev_status.get(pid)
+                              for r in report.findings)}
+            version_info = {"thread": parent_meta.get("thread") or parent_fp.stem,
+                            "version": parent_meta.get("version", 1), "parent": str(parent_fp), "kind": "final",
+                            "compare": compare_versions(parent_rep, {}, report, doc), "hitl": carried}
+        else:
+            version_info = {"thread": parent_meta.get("thread") or parent_fp.stem,
+                            "version": parent_meta.get("version", 1) + 1, "parent": str(parent_fp),
+                            "compare": compare_versions(parent_rep, parent_meta.get("hitl") or {}, report, doc,
+                                                        old_doc=old_doc)}
     (config.OUTPUT_DIR / f"{trace.run_name}.meta.json").write_text(json.dumps(
         {"mode": mode, "lang": lang, "seconds": seconds, "n_pages": len(pages), "pdf": str(kept_pdf),
-         "trace": str(trace_fp), "model": config.MODEL,
-         "profile": profile.model_dump() if profile else None, "origin": origin,
-         "policy_name": (type_label(profile.contract_type, "th") if profile else t(st.session_state.policy_source or "src_upload")),
-         "criteria": active},
+         "trace": str(trace_fp), "model": config.MODEL, "created": time.strftime("%Y-%m-%d %H:%M"),
+         "profile": profile.model_dump() if profile else parent_meta.get("profile"), "origin": origin,
+         "policy_name": parent_meta.get("policy_name") if revise else (
+             type_label(profile.contract_type, "th") if profile else t(st.session_state.policy_source or "src_upload")),
+         "criteria": active} | version_info,
         ensure_ascii=False), encoding="utf-8")
-    for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_"))]:
+    for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_", "cd_"))]:
         del st.session_state[k]
     st.session_state.result = load_saved(js)
+    st.session_state.scroll_top = True
     st.rerun()
 
 res = st.session_state.get("result")
+
+
+def scroll_to_top_once() -> None:
+    """Streamlit keeps the scroll position across reruns; after a run or opening a contract, start at the top."""
+    if st.session_state.pop("scroll_top", False):
+        components.html("<script>const d = window.parent.document;"
+                        "[d.querySelector('[data-testid=\"stMain\"]'), d.querySelector('section.main'),"
+                        " d.scrollingElement].forEach(e => e && e.scrollTo({top: 0}));</script>", height=0)
+
+
+def open_run(fp: Path) -> None:
+    loaded = load_saved(fp)
+    if loaded:
+        for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_", "cd_"))]:
+            del st.session_state[k]
+        st.session_state.result = loaded
+        st.session_state.scroll_top = True
+
+
+def status_box(res: dict, findings) -> None:
+    """Right-hand panel at the top of the dashboard: decision, next step, the one action that fits, and history."""
+    versions = thread_versions(res["thread"])
+    latest = max([v for v, _, _ in versions] or [res["version"]])
+    cur = res.get("decision") or {}
+    key = cur.get("decision", "pending")
+    icon, ink, bg = DECISION_STYLE[key]
+    hitl = res.get("hitl") or {}
+    waiting = sum((hitl.get(p) or {}).get("decision") not in ("r_ok", "r_back") for p in needs_legal(findings))
+    is_last = not versions or str(versions[-1][1]) == res["path"]
+    agent_checked = res.get("kind") == "final" or res.get("mode") == "m_agent"
+    if res["version"] < latest:
+        nxt = t("nx_old", v=latest)
+    elif not is_last:
+        nxt = t("nx_newer_check")
+    elif key == "pending" and not waiting and not agent_checked:
+        nxt = t("nx_final")
+    else:
+        nxt = {"pending": t("nx_review", n=waiting) if waiting else t("nx_decide"),
+               "sent": t("nx_revise"), "rejected": t("nx_rejected"), "approved": t("nx_done")}[key]
+    who = (f"<div class='cc-muted' style='margin-top:4px'>{ui.esc(t('cd_by', by=cur['by'], at=cur['at']))}</div>"
+           if cur else "")
+    why = (f"<div style='margin-top:6px;padding:8px 12px;background:#fff;border-radius:8px'>“{ui.esc(cur['reason'])}”</div>"
+           if cur.get("reason") else "")
+    st.html(f"<div class='cc-card' style='border-left:6px solid {ink};background:{bg};margin-bottom:8px'>"
+            f"<div class='cc-label'>{t('sb_title_short', e=entry_label(res['version'], res))}</div>"
+            f"<div style='margin:8px 0 0'>{decision_badge(key)}</div>{who}{why}"
+            f"<div style='margin-top:10px'><b>{t('sb_next')}:</b> {ui.esc(nxt)}</div>"
+            f"<div style='margin-top:6px'><a href='#decision' style='font-size:13px'>{t('sb_details')}</a></div></div>")
+
+    # the one action that fits where the contract is
+    can_revise = is_last and key in ("sent", "rejected")
+    can_final = is_last and key == "pending" and not waiting and not agent_checked \
+        and bool(res.get("pdf")) and Path(res["pdf"]).exists()
+    if can_final:
+        with st.container(border=True):
+            st.markdown(f"**{t('fc_title')}**")
+            st.caption(t("fc_note"))
+            if st.button(t("fc_run"), type="primary", key="final_check"):
+                # name the file after the contract, not the stored copy, so the title stays the contract's own
+                st.session_state.revise = {"bytes": Path(res["pdf"]).read_bytes(),
+                                           "name": f"{res['report'].contract_title}.pdf",
+                                           "parent": res["path"], "kind": "final"}
+                st.rerun()
+    def revised_upload(title: bool) -> None:
+        if title:
+            st.markdown(f"**{t('rev_title', v=latest + 1)}**")
+        st.caption(t("rev_note"))
+        up = st.file_uploader(t("rev_up"), type="pdf", key=f"rev_pdf_{res['thread']}", label_visibility="collapsed")
+        use_agent = st.checkbox(t("rev_agent"), value=True, key=f"rev_agent_{res['thread']}")
+        if use_agent and res.get("mode") != "m_agent":
+            st.caption(t("rev_agent_note"))
+        if st.button(t("rev_run", v=latest + 1), type="primary", disabled=up is None):
+            st.session_state.revise = {"bytes": up.getvalue(), "name": up.name, "parent": res["path"],
+                                       "agent": use_agent}
+            st.rerun()
+
+    if can_revise:  # after "rejected" / "redlines sent" the revised version is the expected next step
+        with st.container(border=True):
+            revised_upload(title=True)
+    elif is_last and key == "pending":  # the other party may send a new version before a decision is made
+        with st.expander(t("rev_title_other", v=latest + 1)):
+            revised_upload(title=False)
+
+    # history: newest first, one line per check, open any earlier one
+    with st.expander(t("sb_history", n=len(versions)), expanded=False):
+        for i, (v, fp, m) in reversed(list(enumerate(versions))):
+            d = (m.get("decision") or {}).get("decision", "pending")
+            try:
+                lvl = ui.verdict_level(ContractAuditReport.model_validate_json(fp.read_text(encoding="utf-8")).findings)
+                verdict = f"{VERDICT_ICON[lvl]} {t('pv_' + lvl)}"
+            except Exception:
+                verdict = ""
+            mode_l = "Agent" if m.get("mode") == "m_agent" else "Single call"
+            here = str(fp) == res["path"]
+            log = m.get("decision_log") or []
+            hist = "".join(f"<div class='cc-muted' style='margin-left:14px'>{DECISION_STYLE[e['decision']][0]} "
+                           f"{ui.esc(t('dec_' + e['decision']))} · {ui.esc(e['by'])} · {ui.esc(e['at'])}"
+                           + (f" · “{ui.esc(e['reason'])}”" if e.get("reason") else "") + "</div>" for e in log)
+            h1, h2 = st.columns([4, 1], vertical_alignment="center")
+            h1.html(f"<div><b>{ui.esc(entry_label(v, m))}</b>"
+                    + (f" <span style='color:{ink};font-weight:600'>◀ {t('tl_here')}</span>" if here else "")
+                    + f"<div class='cc-muted'>{ui.esc(created_at(fp, m))} · {mode_l} · {ui.esc(verdict)} · "
+                    f"{DECISION_STYLE[d][0]} {ui.esc(t('dec_' + d))}</div>{hist}</div>")
+            if not here:
+                h2.button(t("sb_open_short"), key=f"open_entry_{i}", on_click=open_run, args=(fp,), width="stretch")
+
+
+CHANGE_STYLE = {"fixed": ("✅", "#0a7d0a"), "better": ("⬆", "#2a54d6"), "open": ("🔁", "#c2410c"),
+                "new": ("🆕", "#b42d2d"), "worse": ("⬇", "#b42d2d"), "same": ("·", "#8a8f9c")}
+
+
+def compare_section(res: dict) -> None:
+    rows = res["compare"]
+    final = res.get("kind") == "final"
+    prev = res["version"] if final else res["version"] - 1
+    cnt = {k: sum(r["change"] == k for r in rows) for k in CHANGE_STYLE}
+    pre = "chf_" if final else "ch_"  # same document: the check changed, not the contract
+    head = " · ".join(f"{CHANGE_STYLE[k][0]} {t(pre + k)} {cnt[k]}" for k in CHANGE_STYLE if cnt[k])
+    body = ""
+    for r in rows:
+        ic, ink = CHANGE_STYLE[r["change"]]
+        s = r["redline_score"]
+        s0 = r.get("redline_old_score")
+        red = ("–" if s is None else
+               f"<span style='color:#8a5a00'>? {t('rl_unclear', s=s, s0=s0)}</span>" if s0 is not None and s0 >= 88 else
+               f"<span style='color:#0a7d0a'>✓ {t('rl_found', s=s)}</span>" if s >= 88 else
+               f"<span style='color:#c2410c'>✕ {t('rl_missing', s=s)}</span>")
+        body += (f"<tr><td><b>{ui.esc(r['id'])}</b></td><td>{ui.esc(r['topic'])}</td><td>{ui.chip(r['old'])}</td>"
+                 f"<td>{ui.chip(r['new'])}</td><td style='color:{ink};font-weight:600'>{ic} {t(pre + r['change'])}</td>"
+                 f"<td>{red}</td></tr>")
+    title = t("cmp_final_title", v=res["version"]) if final else t("cmp_title", p=prev, v=res["version"])
+    c_old, c_new = (t("cmp_before"), t("kind_final")) if final else (f"v{prev}", f"v{res['version']}")
+    red_head = "" if final else f"<th>{t('cmp_redline')}</th>"
+    if final:
+        body = body.replace("<td>–</td></tr>", "</tr>")
+    st.html(f"<div class='cc-card' style='margin-bottom:10px'><div class='cc-label'>{title}</div>"
+            f"<div style='margin:6px 0 8px'>{head}</div><table class='cc-table'><tr><th>{t('t_rule')}</th>"
+            f"<th>{t('t_topic')}</th><th>{c_old}</th><th>{c_new}</th><th>{t('cmp_change')}</th>"
+            f"{red_head}</tr>{body}</table>"
+            f"<div class='cc-muted' style='margin-top:6px'>{t('cmp_final_note') if final else t('cmp_note')}</div></div>")
+
 
 # ================= contract workspace (PDF + findings), shown inside the dashboard =================
 def contract_workspace(res: dict) -> None:
@@ -957,10 +1466,10 @@ def contract_workspace(res: dict) -> None:
     with right:
         f = chosen.finding
         st.html(f"<div class='cc-card'><div class='cc-label'>{ui.esc(f.policy_id)} · {ui.esc(f.clause_category)}</div>"
-                f"<div style='margin:8px 0'>{ui.chip(f.compliance_status)} {ui.risk_chip(f.risk_level)}</div>"
-                f"<div class='cc-muted'>{ui.esc(f.clause_reference)}</div></div>")
-        st.markdown(f"**{t('issue')}**  \n{f.issue_description}")
-        st.markdown(f"**{t('action')}**  \n{f.action_required}")
+                f"<div style='margin:8px 0'>{ui.chip(f.compliance_status)} {ui.risk_chip(f.risk_level)}{review_chip(chosen)}</div>"
+                f"<div class='cc-muted'>{ui.esc(ref_text(f))}</div></div>")
+        show_ai(res, f"{f.policy_id}.issue", t("issue"), f.issue_description)
+        show_ai(res, f"{f.policy_id}.action", t("action"), f.action_required)
         if f.suggested_redline:
             st.markdown(f"**{t('redline')}**")
             st.code(f.suggested_redline, language=None, wrap_lines=True)
@@ -979,63 +1488,73 @@ if view == "dash":
         findings = report.findings
         n = len(findings) or 1
         if res.get("lang", "th") != st.session_state.lang:
-            st.caption(t("lang_note"))
+            try:
+                ensure_translation(res, st.session_state.lang)
+                st.caption("🌐 " + t("lang_note"))
+            except Exception:
+                res["tr"] = {}
+                st.warning(t("lang_fail"), icon="🌐")
+        scroll_to_top_once()
         ai_ids = {x["id"] for x in res.get("criteria", []) if x.get("source") == "ai"}
         prof = res.get("profile")
-        if prof:
-            _l = st.session_state.lang
-            th = _l == "th"
-            name = lambda x: (x.get("title_th") if th and x.get("title_th") else x.get("title")) or ""
-            ctype = prof["contract_type"]
-            tname = type_label(ctype, _l)
-            crit = res.get("criteria", [])
-            gen = [x for x in crit if x.get("source") == "general"]
-            spec = [x for x in crit if x.get("source") in ("library", "ai")]
-            items = lambda xs, note, tag="": "".join(
-                f"<li><b>{ui.esc(x['id'])}</b> {ui.esc(name(x))}"
-                + (f" <span class='cc-tagall'>{tag}</span>" if tag else "")
-                + (f" — <span class='cc-muted'>{ui.esc(x.get('why') or '')}</span>" if note else "") + "</li>" for x in xs)
-            n_all = len(spec) + len(gen)
-            spec_head = (t("prof_ai", type=tname, n=n_all) if res.get("origin") == "ai"
-                         else t("prof_lib_draft", type=tname, n=n_all) if any(x.get("draft") for x in spec)
-                         else t("prof_lib", type=tname, n=n_all))
-            st.html(
-                f"<div class='cc-card'><div class='cc-label'>{t('prof_title')}</div>"
-                f"<div style='display:flex;flex-wrap:wrap;gap:6px 28px;margin:6px 0 4px'>"
-                f"<div><span class='cc-muted'>{t('prof_type')}</span><br><b>{ui.esc(tname)}</b></div>"
-                f"<div><span class='cc-muted'>{t('prof_us')}</span><br><b>{ui.esc(prof['our_party'])}</b></div>"
-                f"<div><span class='cc-muted'>{t('prof_them')}</span><br><b>{ui.esc(prof['counterparty'])}</b></div></div>"
-                f"<div class='cc-muted' style='margin-bottom:8px'>{ui.esc(prof['subject'])}</div>"
-                f"<div><b>{spec_head}</b><ul style='margin:4px 0;columns:2 340px;column-gap:28px'>"
-                f"{items(spec, res.get('origin') == 'ai')}{items(gen, False, t('tag_all'))}</ul>"
-                + (f"<div class='cc-muted'>{t('prof_ai_note')}</div>" if res.get("origin") == "ai" else "")
-                + "</div></div>")
-            if res.get("origin") == "ai" or any(x.get("draft") for x in spec):
-                in_library = bool(current_library().get(ctype))
-                d1, d2 = st.columns([3, 1], vertical_alignment="center")
-                if in_library:
-                    d1.info(t("prof_drafted", type=tname) if res.get("origin") == "ai" else t("lib_draft_note", n=len(spec)))
-                    go = d2.button(t("go_review"), width="stretch")
-                else:
-                    # e.g. a run from before auto-save, or the cloud app restarted and reset the library
-                    d1.warning(t("prof_not_in_lib", type=tname))
-                    go = d2.button(t("save_and_review"), type="primary", width="stretch")
+        top_l, top_r = st.columns([3, 2], gap="medium") if prof else (st.container(), st.container())
+        with top_r:
+            status_box(res, findings)
+        with top_l:
+            if prof:
+                _l = st.session_state.lang
+                th = _l == "th"
+                name = lambda x: (x.get("title_th") if th and x.get("title_th") else x.get("title")) or ""
+                ctype = prof["contract_type"]
+                tname = type_label(ctype, _l)
+                crit = res.get("criteria", [])
+                gen = [x for x in crit if x.get("source") == "general"]
+                spec = [x for x in crit if x.get("source") in ("library", "ai")]
+                items = lambda xs, note, tag="": "".join(
+                    f"<li><b>{ui.esc(x['id'])}</b> {ui.esc(name(x))}"
+                    + (f" <span class='cc-tagall'>{tag}</span>" if tag else "")
+                    + (f" — <span class='cc-muted'>{ui.esc(x.get('why') or '')}</span>" if note else "") + "</li>" for x in xs)
+                n_all = len(spec) + len(gen)
+                spec_head = (t("prof_ai", type=tname, n=n_all) if res.get("origin") == "ai"
+                             else t("prof_lib_draft", type=tname, n=n_all) if any(x.get("draft") for x in spec)
+                             else t("prof_lib", type=tname, n=n_all))
+                st.html(
+                    f"<div class='cc-card'><div class='cc-label'>{t('prof_title')}</div>"
+                    f"<div style='display:flex;flex-wrap:wrap;gap:6px 28px;margin:6px 0 4px'>"
+                    f"<div><span class='cc-muted'>{t('prof_type')}</span><br><b>{ui.esc(tname)}</b></div>"
+                    f"<div><span class='cc-muted'>{t('prof_us')}</span><br><b>{ui.esc(party_text(prof['our_party']))}</b></div>"
+                    f"<div><span class='cc-muted'>{t('prof_them')}</span><br><b>{ui.esc(party_text(prof['counterparty']))}</b></div></div>"
+                    f"<div class='cc-muted' style='margin-bottom:8px'>{ui.esc(prof['subject'])}</div>"
+                    f"<div><b>{spec_head}</b><ul style='margin:4px 0;columns:2 340px;column-gap:28px'>"
+                    f"{items(spec, res.get('origin') == 'ai')}{items(gen, False, t('tag_all'))}</ul>"
+                    + (f"<div class='cc-muted'>{t('prof_ai_note')}</div>" if res.get("origin") == "ai" else "")
+                    + "</div></div>")
+                if res.get("origin") == "ai" or any(x.get("draft") for x in spec):
+                    in_library = bool(current_library().get(ctype))
+                    d1, d2 = st.columns([3, 1], vertical_alignment="center")
+                    if in_library:
+                        d1.info(t("prof_drafted", type=tname) if res.get("origin") == "ai" else t("lib_draft_note", n=len(spec)))
+                        go = d2.button(t("go_review"), width="stretch")
+                    else:
+                        # e.g. a run from before auto-save, or the cloud app restarted and reset the library
+                        d1.warning(t("prof_not_in_lib", type=tname))
+                        go = d2.button(t("save_and_review"), type="primary", width="stretch")
+                        if go:
+                            lib = current_library()
+                            src_name = res["report"].contract_title.split("-EX-")[0][:40]
+                            lib[ctype] = renumber(
+                                [{k: x[k] for k in ("title", "title_th", "text", "if_absent", "keywords") if k in x}
+                                 | {"draft": True, "origin": f"AI ร่างจากสัญญา {src_name}", "added": today()} for x in spec],
+                                prefix_for(ctype))
+                            save_library(lib)
+                            reset_library_tables(lib)
+                            log_change("ai_draft", ctype, f"{len(spec)} ข้อ จากสัญญา {src_name} (บันทึกจากแดชบอร์ด)")
                     if go:
-                        lib = current_library()
-                        src_name = res["report"].contract_title.split("-EX-")[0][:40]
-                        lib[ctype] = renumber(
-                            [{k: x[k] for k in ("title", "title_th", "text", "if_absent", "keywords") if k in x}
-                             | {"draft": True, "origin": f"AI ร่างจากสัญญา {src_name}", "added": today()} for x in spec],
-                            prefix_for(ctype))
-                        save_library(lib)
-                        reset_library_tables(lib)
-                        log_change("ai_draft", ctype, f"{len(spec)} ข้อ จากสัญญา {src_name} (บันทึกจากแดชบอร์ด)")
-                if go:
-                    st.session_state["choice_lib_group"] = ctype
-                    for _k in ("lib_group_th", "lib_group_en"):  # let pick() re-create the dropdown on this type
-                        st.session_state.pop(_k, None)
-                    st.session_state.goto = "policy"
-                    st.rerun()
+                        st.session_state["choice_lib_group"] = ctype
+                        for _k in ("lib_group_th", "lib_group_en"):  # let pick() re-create the dropdown on this type
+                            st.session_state.pop(_k, None)
+                        st.session_state.goto = "policy"
+                        st.rerun()
 
         counts = {s: sum(r.finding.compliance_status == s for r in findings) for s in STATUS_COLOR}
         level = ui.verdict_level(findings)
@@ -1050,10 +1569,17 @@ if view == "dash":
         st.html(ui.verdict_panel(
             level, t(f"vd_{level}"), sub, counts, status_labels(),
             [(r.finding.policy_id, r.finding.clause_category, r.finding.compliance_status, r.finding.risk_level,
-              r.finding.action_required, r.finding.clause_reference) for r in open_issues],
+              ai_text(res, f"{r.finding.policy_id}.action", r.finding.action_required)[0], ref_text(r.finding))
+             for r in open_issues],
             t("vd_fix"), t("vd_more")))
+        if res.get("compare"):  # after the verdict: the verdict is what people must see first
+            compare_section(res)
         with st.expander(t("summary_ai"), expanded=True):
-            st.markdown(report.executive_summary)
+            summ, summ_tr = ai_text(res, "summary", report.executive_summary)
+            st.markdown(md_safe(summ, keep_format=True))
+            if summ_tr:
+                with st.popover(t("orig")):
+                    st.markdown(md_safe(report.executive_summary, keep_format=True))
         st.caption(t("run_meta", mode=t(res["mode"]), s=f"{res['seconds']:.0f}", calls=totals["llm_calls"],
                      tok=f"{totals['tokens_in'] + totals['tokens_out']:,}", cost=f"{totals['cost_usd']:.3f}",
                      model=config.MODEL))
@@ -1072,19 +1598,19 @@ if view == "dash":
         st.subheader(t("findings"))
         f1, f2 = st.columns([3, 1])
         show = f1.multiselect(t("filter"), list(STATUS_COLOR), default=list(STATUS_COLOR))
-        f2.download_button(t("dl_xlsx"), excel_bytes(res["report"], res.get("hitl")), res["xlsx_name"], width="stretch")
+        f2.download_button(t("dl_xlsx"), excel_bytes(res["report"], res.get("hitl"), res), res["xlsx_name"], width="stretch")  # noqa
         rows = "".join(
             f"<tr><td><b>{ui.esc(r.finding.policy_id)}</b></td><td>{ui.esc(r.finding.clause_category)}"
             f"{' <span class=cc-muted>· ' + t('ai_tag') + '</span>' if r.finding.policy_id in ai_ids else ''}</td>"
-            f"<td>{ui.chip(r.finding.compliance_status)}</td><td>{ui.risk_chip(r.finding.risk_level)}</td>"
-            f"<td class='cc-muted'>{ui.esc(r.finding.clause_reference)}</td>"
-            f"<td>{'✓ p.' + str(r.verified_page) if r.verified and r.verified_page else ('✓' if r.verified else '✕')}</td></tr>"
+            f"<td>{ui.chip(r.finding.compliance_status)}{review_chip(r)}</td><td>{ui.risk_chip(r.finding.risk_level)}</td>"
+            f"<td class='cc-muted'>{ui.esc(ref_text(r.finding))}</td>"
+            f"<td>{'✓ p.' + str(r.verified_page) if r.verified and r.verified_page else ('✓' if r.verified else ('– ' + t('unchecked') if r.unchecked else '✕'))}</td></tr>"
             for r in findings if r.finding.compliance_status in show)
         st.html(f"<div class='cc-card'><table class='cc-table'><tr><th>{t('t_rule')}</th><th>{t('t_topic')}</th>"
                 f"<th>{t('t_status')}</th><th>{t('t_risk')}</th><th>{t('t_ref')}</th><th>{t('t_ver')}</th></tr>{rows}</table></div>")
 
         st.subheader(t("details"))
-        need = [r.finding.policy_id for r in findings if r.finding.risk_level == "HIGH" or not r.verified]
+        need = needs_legal(findings)
         for pid in need:  # restore saved decisions before the widgets are created
             saved = (res.get("hitl") or {}).get(pid, {})
             if f"hitl_{pid}" not in st.session_state and saved:
@@ -1097,26 +1623,30 @@ if view == "dash":
             f = r.finding
             if f.compliance_status not in show:
                 continue
-            with st.expander(f"{STATUS_ICON[f.compliance_status]} {f.policy_id} · {f.clause_category} — "
-                             f"{f.compliance_status} / {f.risk_level}", expanded=f.risk_level == "HIGH"):
+            icon = STATUS_ICON[f.compliance_status] if r.verified else "⚠️"
+            flag = "" if r.verified else f" · {t('needs_review')}"
+            with st.expander(f"{icon} {f.policy_id} · {f.clause_category} — "
+                             f"{f.compliance_status} / {f.risk_level}{flag}", expanded=f.risk_level == "HIGH"):
                 left, right = st.columns(2)
                 with left:
-                    st.html(ui.chip(f.compliance_status) + " " + ui.risk_chip(f.risk_level))
-                    st.markdown(f"**{t('contract_text')}** · {f.clause_reference}")
+                    st.html(ui.chip(f.compliance_status) + " " + ui.risk_chip(f.risk_level) + review_chip(r))
+                    st.markdown(f"**{t('contract_text')}** · {ref_text(f)}")
                     st.html(f"<div class='cc-quote'>{ui.esc(f.extracted_text or t('not_found'))}</div>")
                     if r.verified and r.verified_page:
                         st.success(t("ver_found", p=r.verified_page, s=f"{r.quote_score:.0f}"))
                     elif r.verified:
                         st.success(t("ver_missing"))
+                    elif r.unchecked:
+                        st.warning(t("ver_unchecked"))
                     else:
                         st.error(t("ver_fail"))
                 with right:
-                    st.markdown(f"**{t('issue')}**  \n{f.issue_description}")
-                    st.markdown(f"**{t('action')}**  \n{f.action_required}")
+                    show_ai(res, f"{f.policy_id}.issue", t("issue"), f.issue_description)
+                    show_ai(res, f"{f.policy_id}.action", t("action"), f.action_required)
                     if f.suggested_redline:
                         st.markdown(f"**{t('redline')}**")
                         st.code(f.suggested_redline, language=None, wrap_lines=True)
-                    if f.risk_level == "HIGH" or not r.verified:
+                    if needs_legal_one(r):
                         pid = f.policy_id
                         saved = (res.get("hitl") or {}).get(pid, {})
                         if saved.get("decision") == "rechecked":
@@ -1139,6 +1669,69 @@ if view == "dash":
                                     st.session_state.pop(k, None)
                                 st.rerun()
 
+        # ---- contract-level decision, made by a person ----
+        st.subheader(t("cd_title"), anchor="decision")
+        st.caption(t("cd_note"))
+        cur = res.get("decision") or {}
+        if cur:
+            st.html(f"<div class='cc-card' style='margin-bottom:10px'>{decision_badge(cur['decision'])} "
+                    f"<span class='cc-muted'>{ui.esc(t('cd_by', by=cur['by'], at=cur['at']))}</span>"
+                    + (f"<div style='margin-top:6px'>{ui.esc(cur['reason'])}</div>" if cur.get("reason") else "")
+                    + "</div>")
+        _hitl = res.get("hitl") or {}
+        legal_of = lambda pid: st.session_state.get(f"hitl_{pid}") or _hitl.get(pid, {}).get("decision", "r_wait")
+        waiting = sum(legal_of(pid) not in ("r_ok", "r_back") for pid in need)
+        approved_red = [r for r in findings if r.finding.suggested_redline.strip()
+                        and r.finding.policy_id in need and legal_of(r.finding.policy_id) == "r_ok"]
+        pending_ids = [pid for pid in need if legal_of(pid) not in ("r_ok", "r_back")]
+        choice = st.session_state.get("cd_choice")
+        by_now = st.session_state.get("cd_by", "").strip()
+        reason_now = st.session_state.get("cd_reason", "").strip()
+        need_reason = choice == "rejected" or (choice == "approved" and n_block > 0)
+        # requirements per decision: (decision or None for all, met?, text)
+        reqs = [
+            (None, not waiting, t("ck_legal", d=len(need) - waiting, n=len(need))
+             + (f" · {t('ck_waiting')}: {', '.join(pending_ids)}" if pending_ids else "")),
+            ("sent", bool(approved_red), t("ck_red", n=len(approved_red))),
+            ("approved", not waiting, t("ck_all_legal")),
+            ("approved", res.get("kind") == "final" or res.get("mode") == "m_agent", t("ck_final")),
+            ("approved", not n_block or bool(reason_now), t("ck_override", n=n_block) if n_block else t("ck_no_high")),
+            ("rejected", bool(reason_now), t("ck_reason")),
+            (None, bool(by_now), t("ck_name")),
+        ]
+        groups = [(None, t("ck_all"))] + [(k, decision_label(k)) for k in ("sent", "approved", "rejected")]
+        html = ""
+        for key, title in groups:
+            items = [(ok, txt) for k, ok, txt in reqs if k == key]
+            on = key is None or key == choice
+            html += (f"<div style='padding:8px 12px;border-radius:10px;margin-bottom:6px;"
+                     f"background:{'#eef3ff' if key and key == choice else 'transparent'};opacity:{1 if on else .55}'>"
+                     f"<b>{ui.esc(title)}</b>" + "".join(
+                         f"<div style='margin-top:3px'><span style='color:{'#0a7d0a' if ok else '#c2410c'};font-weight:700'>"
+                         f"{'✓' if ok else '○'}</span> {ui.esc(txt)}</div>" for ok, txt in items) + "</div>")
+        st.html(f"<div class='cc-card' style='margin-bottom:12px'><div class='cc-label' style='margin-bottom:6px'>"
+                f"{t('ck_title')}</div>{html}</div>")
+        if pending_ids:
+            st.caption(t("ck_where"))
+
+        c1, c2 = st.columns([2, 3])
+        with c1:
+            choice = st.radio(t("cd_pick"), ["sent", "approved", "rejected"], format_func=decision_label,
+                              key="cd_choice", index=None)
+            by = st.text_input(t("cd_by_in"), key="cd_by")
+        with c2:
+            reason = st.text_area(t("cd_reason_req") if need_reason else t("cd_reason_opt"), key="cd_reason")
+            if choice == "approved" and n_block:
+                st.warning(t("cd_override", n=n_block))
+            if approved_red:
+                st.download_button(t("cd_dl", n=len(approved_red)), redline_letter(res, approved_red),
+                                   f"{Path(res['path']).stem}_redlines.txt")
+        ready = choice is not None and all(ok for k, ok, _ in reqs if k == choice) and bool(by.strip()) \
+            and (not need_reason or bool(reason.strip()))
+        if c1.button(t("cd_save"), type="primary", disabled=not ready):
+            save_decision(res, choice, by.strip(), reason.strip())
+            st.rerun()
+
 # ================= tab 4: agent trace =================
 if view == "trace":
     if not res:
@@ -1147,6 +1740,11 @@ if view == "trace":
         recs = res["records"]
         llm = [x for x in recs if x["type"] == "llm"]
         st.markdown(t("loop"))
+        st.html(f"<div class='cc-card' style='margin-bottom:10px'><div class='cc-label'>{t('vx_title')}</div>"
+                f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px'>"
+                f"<div><b>{t('vx_1')}</b><div class='cc-muted'>{t('vx_1d')}</div></div>"
+                f"<div><b>{t('vx_2')}</b><div class='cc-muted'>{t('vx_2d')}</div></div></div>"
+                f"<div class='cc-muted' style='margin-top:8px'>{t('vx_fail')}</div></div>")
         m = st.columns(4)
         m[0].metric(t("m_calls"), len(llm))
         m[1].metric(t("m_wait"), f"{sum(x['sec'] for x in llm):.0f} {t('seconds')}")
@@ -1159,9 +1757,10 @@ if view == "trace":
                     st.markdown(f"`{i:>2}` {call}")
                 for v in [x for x in recs if x["type"] == "verify" and x["rule"] == f.policy_id]:
                     if v["ok"]:
-                        st.success(t("v_ok") + (t("v_score", s=f"{v['score']:.0f}") if v.get("score") else ""))
+                        st.success(t("v_ok1", s=f"{v['score']:.0f}") if v.get("score") else t("v_ok2"))
                     else:
-                        st.warning(t("v_back", f=v["feedback"]))
+                        st.warning(verifier_reason(v))
+                        st.caption(t("v_sent", f=v["feedback"]))
         with st.expander(t("log")):
             st.dataframe(pd.DataFrame(llm), hide_index=True, width="stretch")
 
@@ -1190,7 +1789,7 @@ if view == "port":
     st.subheader(t("p_title"))
     st.caption(t("p_note"))
     _l = st.session_state.lang
-    rows, paths = [], []
+    rows, paths, entries = [], [], []
     for fp in saved_reports():
         try:
             rep = ContractAuditReport.model_validate_json(fp.read_text(encoding="utf-8"))
@@ -1204,18 +1803,33 @@ if view == "port":
         prof = meta.get("profile")
         cnt = {s: sum(r.finding.compliance_status == s for r in rep.findings) for s in STATUS_COLOR}
         n = max(len(rep.findings), 1)
-        paths.append(fp)
-        rows.append({
+        need_p = needs_legal(rep.findings)
+        done_p = sum((meta.get("hitl") or {}).get(pid, {}).get("decision") in ("r_ok", "r_back") for pid in need_p)
+        level_p = ui.verdict_level(rep.findings)
+        entries.append((meta.get("thread") or fp.stem, (meta.get("version", 1), created_at(fp, meta)), fp, {
             t("p_contract"): rep.contract_title.split("-EX-")[0][:48],
+            t("p_version"): entry_label(meta.get("version", 1), meta),
+            t("p_ai"): f"{VERDICT_ICON[level_p]} {t('pv_' + level_p)}",
+            t("p_legal"): f"{'✅' if done_p == len(need_p) else '⏳'} {done_p}/{len(need_p)}",
+            t("p_decision"): decision_label((meta.get("decision") or {}).get("decision", "pending")),
             t("p_type"): type_label(prof["contract_type"], _l) if prof else "–",
+            t("p_pages"): meta.get("n_pages"),
             t("p_when"): time.strftime("%d %b %H:%M", time.localtime(fp.stat().st_mtime)),
             t("p_mode"): "Single call" if fp.stem.endswith("baseline") else "Agent",
             t("p_policy"): policy_label(meta, _l),
             t("k_score"): 100 * cnt["COMPLIANT"] / n,
-            t("p_split"): "   ".join(f"{ui.STATUS[s][1]} {cnt[s]}" for s in STATUS_COLOR),
+            t("p_split"): "  ".join(f"{STATUS_ICON[s]} {cnt[s]}" for s in STATUS_COLOR),
             t("p_high"): rep.counts["high"], t("p_miss"): rep.counts["missing"],
             t("p_ver"): f"{rep.counts['verified']}/{rep.counts['total']}",
-        })
+        }))
+    # one row per contract: keep the latest version of each thread (older versions open from its status box)
+    top = {}
+    for thr, ver, _, _ in entries:
+        top[thr] = max(top.get(thr, (0, "")), ver)
+    for thr, ver, fp, row in entries:
+        if ver == top[thr]:
+            paths.append(fp)
+            rows.append(row)
     if not rows:
         st.info(t("p_empty"))
     else:
@@ -1226,10 +1840,15 @@ if view == "port":
         if query.strip():
             q = query.strip().lower()
             df = df[df.drop(columns="_i").astype(str).apply(lambda r: q in " ".join(r).lower(), axis=1)]
-        st.caption(t("p_legend", s=" · ".join(f"{ui.STATUS[s][1]} {lbl}" for s, lbl in status_labels().items())))
+        st.caption(t("p_legend", s=" · ".join(f"{STATUS_ICON[s]} {lbl}" for s, lbl in status_labels().items())))
         st.session_state.setdefault("port_ver", 0)
+        count_ink = lambda ink: (lambda v: f"color:{ink};font-weight:700" if v > 0 else "color:#b4b9c6")
+        styled = (df.drop(columns="_i").style
+                  .map(count_ink("#d03b3b"), subset=[t("p_high")])     # high risk: red
+                  .map(count_ink("#c2410c"), subset=[t("p_miss")])     # missing clause: dark orange
+                  .format({t("p_pages"): lambda v: "–" if pd.isna(v) else f"{int(v)}"}))  # old runs have no page count
         event = st.dataframe(
-            df.drop(columns="_i"), hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
+            styled, hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
             key=f"port_table_{st.session_state.port_ver}",
             column_config={t("k_score"): st.column_config.ProgressColumn(t("k_score"), format="%.0f%%",
                                                                          min_value=0, max_value=100)})
@@ -1238,8 +1857,9 @@ if view == "port":
             loaded = load_saved(paths[int(df.iloc[sel[0]]["_i"])])
             st.session_state.port_ver += 1  # fresh table next time, so the old click does not reopen
             if loaded:
-                for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_"))]:
+                for k in [k for k in st.session_state if str(k).startswith(("hitl_", "vp_", "cd_"))]:
                     del st.session_state[k]
                 st.session_state.result = loaded
                 st.session_state.goto = target
+                st.session_state.scroll_top = True
                 st.rerun()

@@ -29,6 +29,7 @@ class ReviewedFinding(BaseModel):
     steps: int = 0                      # LLM calls used
     rejections: int = 0                 # times the verifier sent it back
     tool_calls: list[str] = []
+    unchecked: bool = False             # no check was possible (single call says "no clause" without reading passages)
 
 
 class ContractAuditReport(BaseModel):

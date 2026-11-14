@@ -3,6 +3,7 @@
 No tools, no loop, no verifier. We still run the quote check afterwards, only to
 MEASURE how often its citations are real (it is never sent back to fix them).
 """
+import io
 from pathlib import Path
 
 from google.genai import types
@@ -24,7 +25,10 @@ Policy rules:
 def review_single_call(pdf_path: Path, doc: ContractDocument, rules: list[dict], trace: Trace,
                        lang: str = "th", context: str = "") -> ContractAuditReport:
     client = config.client()
-    uploaded = client.files.upload(file=str(pdf_path))
+    # Upload the bytes under a plain ASCII name: the Files API sends the name in an HTTP header,
+    # so a Thai file name (e.g. "สัญญาซื้อขาย.pdf") would fail with UnicodeEncodeError.
+    uploaded = client.files.upload(file=io.BytesIO(Path(pdf_path).read_bytes()),
+                                   config=types.UploadFileConfig(mime_type="application/pdf", display_name="contract.pdf"))
     rules_text = "\n".join(f"- {r['id']} {r['title']}: {r['text'].strip()} "
                            f"(If no clause on this topic: {r['if_absent']}.)" for r in rules)
     if context:
@@ -50,7 +54,11 @@ def review_single_call(pdf_path: Path, doc: ContractDocument, rules: list[dict],
         except ValidationError:
             continue
         page, score = doc.find_quote(f.extracted_text) if f.extracted_text.strip() else (None, None)
-        ok = f.compliance_status == "MISSING" or (score is not None and score >= 88)
-        findings.append(ReviewedFinding(finding=f, verified=ok, verified_page=page, quote_score=score, steps=1))
+        # "No clause" (MISSING, or COMPLIANT with no quote) cannot be checked here: the single call never opens
+        # passages, so there is no evidence either way. Mark it unchecked instead of passing it.
+        no_clause = not f.extracted_text.strip() and f.compliance_status in ("MISSING", "COMPLIANT")
+        ok = not no_clause and score is not None and score >= 88
+        findings.append(ReviewedFinding(finding=f, verified=ok, verified_page=page, quote_score=score, steps=1,
+                                        unchecked=no_clause))
     return ContractAuditReport(contract_title=doc.title, executive_summary=data.get("executive_summary", ""),
                                findings=findings)

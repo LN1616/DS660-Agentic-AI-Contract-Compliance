@@ -40,12 +40,12 @@ TYPE_TH = {
     "Supply": "สัญญาซื้อขาย / จัดหาสินค้า", "Transportation": "สัญญาขนส่ง", "Other": "อื่น ๆ",
 }
 ContractType = Literal[tuple(TYPE_TH)]
-GROUPS_TH = {GENERAL: "ใช้กับทุกสัญญา", **TYPE_TH}
+GROUPS_TH = {GENERAL: "นโยบายกลางของบริษัท (เลือกใช้ต่อสัญญา)", **TYPE_TH}
 
 
 def type_label(name: str, lang: str = "th") -> str:
     if name == GENERAL:
-        return GROUPS_TH[GENERAL] if lang == "th" else "All contracts"
+        return GROUPS_TH[GENERAL] if lang == "th" else "Company-wide (optional per contract)"
     return TYPE_TH.get(name, name) if lang == "th" else name
 
 
@@ -253,13 +253,16 @@ def draft_policy_for_type(ctype: str, lib: dict[str, list[dict]], trace: Trace, 
 
 
 def criteria_for(profile: ContractProfile, lib: dict[str, list[dict]], trace: Trace,
-                 lang: str = "th") -> tuple[list[dict], str]:
-    """Rules to check this contract with, and where the type-specific part came from: 'library' or 'ai'."""
-    general = [{**r, "source": "general"} for r in lib.get(GENERAL, [])]
+                 lang: str = "th", general_ids: list[str] | None = None) -> tuple[list[dict], str]:
+    """Rules to check this contract with, and where the type-specific part came from: 'library' or 'ai'.
+    Company-wide rules are optional: only those in general_ids are added (None = none).
+    The AI still sees every company-wide rule when drafting, so it does not re-create one the user left out."""
+    all_general = [{**r, "source": "general"} for r in lib.get(GENERAL, [])]
+    general = [r for r in all_general if r.get("id") in set(general_ids or [])]
     specific = lib.get(profile.contract_type, [])
     if specific:
         return general + [{**r, "source": "library"} for r in specific], "library"
-    return general + generate_criteria(profile, general, trace, lang), "ai"
+    return general + generate_criteria(profile, all_general, trace, lang), "ai"
 
 
 def context_line(profile: ContractProfile) -> str:
