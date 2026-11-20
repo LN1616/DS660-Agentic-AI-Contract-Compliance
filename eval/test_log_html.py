@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from eval.injection_test import SUMMARY_CLAIMS
+from eval.versions_html import build as versions_block
 
 OUT = Path("outputs")
 RUNS = [  # regression runs: (label, rows csv, reports dir or None, code, note)
@@ -108,6 +109,7 @@ def main(out_path):
     <p class="lead">ชุดทดสอบเดียวกันทุกรอบ: สัญญา CUAD 6 ฉบับ × กฎ CUAD 5 ข้อ (24 การตัดสินที่ให้คะแนนได้ต่อโหมด) · model gemini-3.5-flash-lite · temperature 0 · แต่ละรอบรันครั้งเดียว · ทุกตัวเลขในหน้านี้ดึงจากไฟล์ใน <code>contract-compliance-agent/outputs/</code></p>
   </div>
 
+  {versions_block()}
   <div class="fig"><div class="fig-title"><h3>1 · Regression (ความแม่นไม่ลดหลังแก้)</h3><span class="small">ขั้นเฉลี่ย / ครบ 10 ขั้น / ส่งกลับ มีเฉพาะรอบที่บันทึกรายงานเต็ม (ตั้งแต่ข้อ 1)</span></div>
   {reg}
   <p class="small">"มี/ไม่มีถูก" = ระบบบอกถูกว่าสัญญามีข้อนั้นหรือไม่ (CUAD ให้คะแนนได้แค่นี้ ไม่มีเฉลยว่า COMPLIANT / DEVIATED / VIOLATED) · "quote จริง" = ข้อความที่อ้างหาเจอในสัญญา ≥ 88/100 · เวลารวมรอบที่ API ไม่ว่าง</p></div>
