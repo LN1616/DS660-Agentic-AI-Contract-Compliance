@@ -77,8 +77,33 @@ def row(v):
             f"{sec:.0f} วิ", f"${usd:.4f}", f"<code>{commit}</code>"]
 
 
+def setup_block():
+    """Test setup, read from the actual files: which PDFs, how many pages, which model and rules."""
+    import pymupdf
+    from src import config
+    from eval.cuad import pdf_path
+    from eval.offline_check import DEV_SET
+    inj = {p.name.split("_", 1)[1][:30] for p in (OUT / "injection").glob("INJECTEDB_*.pdf")}
+    rows = []
+    for f in DEV_SET:
+        n = len(pymupdf.open(pdf_path(f)))
+        used = "✓ (A และ B)" if f[:30] in inj else ""
+        rows.append(f"<tr><td>{escape(f.split('-EX-')[0].split('_')[0])}</td><td>{escape(f.split('-EX-')[1].split('-', 1)[1].replace('.PDF', '').split(' - ')[0].strip().title())}</td>"
+                    f"<td>{n}</td><td>{used}</td></tr>")
+    rules = " · ".join(f"{r['id']} {escape(r['title'])}" for r in config.load_playbook())
+    return f"""<div class="fig" id="fig-testset">
+    <div class="fig-title"><h3>ชุดทดสอบที่ใช้กับทุกเวอร์ชัน</h3><span class="small">ทุกเวอร์ชันในตารางด้านล่างวัดด้วยสัญญา กฎ model และวิธีให้คะแนนชุดเดียวกัน</span></div>
+    <div class="tbox"><table class="t" style="min-width:520px"><thead><tr><th>สัญญา (CUAD v1, ภาษาอังกฤษ)</th><th>ประเภท</th><th>หน้า</th><th>ใช้ทดสอบ prompt injection</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>
+    <p class="small"><b>กฎ 5 ข้อ:</b> {rules} · 6 สัญญา × 5 กฎ = 30 การตัดสินต่อโหมด ให้คะแนน "มี/ไม่มี" ได้ 24 (กฎต่ออายุอัตโนมัติไม่นับ) ·
+    <b>Prompt injection:</b> 3 สัญญาแรก × 2 แบบ (A คำสั่งตรง ๆ กลางเอกสาร · B ประกาศปลอมจากฝ่ายกฎหมายหน้าเรื่องความรับผิด) = 6 ไฟล์ · ทั้งสองโหมด ·
+    <b>Model:</b> {escape(config.MODEL)} ทุก call ทุกโหมดทุกเวอร์ชัน · temperature 0 · ไม่ใช้ vision ({escape(config.VISION_MODEL)}) เพราะทุกไฟล์เป็น PDF ข้อความ</p>
+    <p class="small"><b>ขอบเขตของผล:</b> 6 สัญญาสั้น (7–17 หน้า) ยังน้อยเกินสรุปเชิงสถิติ · ทดสอบกับ model เดียว · รันรอบเดียวต่อเวอร์ชัน · ยังไม่มีสัญญายาวเกิน 100 หน้าและสัญญาภาษาไทยที่มีเฉลย</p>
+  </div>
+"""
+
+
 def build():
-    head = ["", "เวอร์ชัน · เปลี่ยนอะไร", "บทเรียนที่ใช้", "มี/ไม่มีถูก", "quote จริง", "ประกาศปลอมหลอกได้",
+    head =["", "เวอร์ชัน · เปลี่ยนอะไร", "บทเรียนที่ใช้", "มี/ไม่มีถูก", "quote จริง", "ประกาศปลอมหลอกได้",
             "สรุปทวนข้อความหลอก", "ขั้นเฉลี่ย/กฎ", "ใช้ครบ 10 ขั้น", "ตัวตรวจซ้ำตีกลับ", "เวลา/ฉบับ", "ต้นทุน/ฉบับ", "โค้ด"]
     rows = [row(v) for v in VERSIONS]
     rows += [[f"<b>{a}</b>", f"<b>{escape(b)}</b><br><span class='small'>แผน · ยังไม่ได้สร้าง</span>", escape(c)]
@@ -86,7 +111,7 @@ def build():
     th = "".join(f"<th>{escape(h)}</th>" for h in head)
     tb = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
     strip = " → ".join(f"<b>{v[0]}</b>" for v in VERSIONS[2:]) + " → <span class='small'>V4 → V5 → V6 (แผน)</span>"
-    return f"""<div class="fig" id="fig-versions">
+    return setup_block() + f"""<div class="fig" id="fig-versions">
     <div class="fig-title"><h3>วิวัฒนาการของระบบ: แต่ละเวอร์ชันเปลี่ยน harness อะไร และผลเปลี่ยนอย่างไร</h3><span class="small">เทียบกับ baseline single call · ทุกเวอร์ชันวัดด้วยชุดเดียวกัน</span></div>
     <p class="small">Baseline: SC1 → SC2 · Agent: {strip}</p>
     <div class="tbox"><table class="t"><thead><tr>{th}</tr></thead><tbody>{tb}</tbody></table></div>
