@@ -79,13 +79,14 @@ TEXT = {
     "s_method": ("3 · วิธีตรวจ", "3 · Method"),
     "m_agent": ("Agent (มีตัวตรวจซ้ำ)", "Agent (with verifier)"),
     "m_baseline": ("Single call (เรียก AI ครั้งเดียว)", "Single call (one AI call)"),
-    "cap_single": ("~20 วิ · ≈0.3 บาท · สัญญาสั้น", "~20 s · ≈0.3 baht · short contracts"),
-    "cap_agent": ("~1–3 นาที · ≈2 บาท · ตรวจซ้ำทุกข้อ · สัญญายาว", "~1–3 min · ≈2 baht · every quote checked · long contracts"),
+    "cap_single": ("~10–20 วิ · ≈0.2–0.3 บาท · ตรวจรอบแรกแบบเร็ว · ไม่ส่งกลับให้แก้", "~10–20 s · ≈0.2–0.3 baht · quick first pass · no send-back"),
+    "cap_agent": ("~40 วิ–1.5 นาที · ≈1–2 บาท · ตรวจซ้ำทุกข้อ · ทนคำสั่งแฝงในสัญญา", "~40 s–1.5 min · ≈1–2 baht · every answer checked · resists instructions hidden in the contract"),
     "up_req": ("PDF ภาษาไทยหรืออังกฤษ · ไฟล์ข้อความหรือสแกน (สแกนให้เปิดสวิตช์ vision ด้านล่าง)",
                "Thai or English PDF · text or scanned (for scans keep the vision switch on)"),
     "up_pages": ("ไฟล์นี้ {n} หน้า", "This file has {n} pages"),
-    "rec_short": ("แนะนำ Single call", "Single call recommended"),
-    "rec_long": ("สัญญายาว: แนะนำลอง Agent", "Long contract: try the Agent"),
+    "rec_short": ("สัญญาสั้น: ใช้ Agent (ค่าเริ่มต้น) หรือ Single call เพื่อดูภาพรวมแบบเร็ว · ผลที่ใช้ตัดสินใจควรผ่าน Agent",
+                  "Short contract: use the Agent (default), or Single call for a quick look · results used for decisions should go through the Agent"),
+    "rec_long": ("สัญญายาว: ใช้ Agent", "Long contract: use the Agent"),
     "vision": ("อ่านหน้า scan / ภาษาไทยที่อ่านไม่ออกด้วย vision model", "Read scanned or garbled pages with a vision model"),
     "run": ("วิเคราะห์สัญญา", "Analyse contract"),
     "tab_policy": ("① นโยบายบริษัท", "① Company policy"),
@@ -521,8 +522,10 @@ with st.sidebar:
         st.caption(t("up_pages", n=n_pages) + " · " + t("rec_long" if n_pages > LONG_PAGES else "rec_short"))
 
     st.subheader(t("s_method"))
-    mode = pick(st.radio, "method", ["m_baseline", "m_agent"], format_func=label_fn(st.session_state.lang),
-                label_visibility="collapsed", captions=[t("cap_single"), t("cap_agent")])
+    # Agent first = default: on 20 Nov it matched or beat single call on accuracy and was not fooled by planted
+    # instructions (0/15 vs 5/15 rules), at ~38 s and under 1 baht per short contract (guide, test log tab)
+    mode = pick(st.radio, "method", ["m_agent", "m_baseline"], format_func=label_fn(st.session_state.lang),
+                label_visibility="collapsed", captions=[t("cap_agent"), t("cap_single")])
     vision = st.toggle(t("vision"), value=True)
     st.caption(f"Model: `{config.MODEL}`")
     run = st.button(t("run"), type="primary", width="stretch",
