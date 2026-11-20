@@ -56,6 +56,9 @@ def main(n: int):
             rep = review_single_call(pdf, doc, rules, trace) if system.startswith("B2") else review(doc, rules, trace)
             rows += grade(rep, fname, rules, system, time.time() - t0, trace.totals)
             trace.save()
+            rep_dir = config.OUTPUT_DIR / "eval_reports"  # full reports (quotes included) for checking failures
+            rep_dir.mkdir(parents=True, exist_ok=True)
+            (rep_dir / f"{system[:2]}_{pdf.stem[:30]}.json").write_text(rep.model_dump_json(indent=2), encoding="utf-8")
             print(f"done {system:<15} {fname[:50]}")
     df = pd.DataFrame(rows)
     config.OUTPUT_DIR.mkdir(exist_ok=True)
