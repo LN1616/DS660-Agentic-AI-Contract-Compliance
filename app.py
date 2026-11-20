@@ -261,6 +261,19 @@ TEXT = {
     "m_calls": ("AI calls ทั้งหมด", "Total AI calls"), "m_wait": ("เวลารอ AI", "Time waiting for AI"),
     "m_back": ("ถูกส่งกลับโดยตัวตรวจซ้ำ", "Sent back by verifier"), "m_retry": ("Retry เพราะ Gemini ไม่ว่าง", "Retries (Gemini busy)"),
     "trace_row": ("{id} · {cat} — {n} AI calls, ส่งกลับ {r} ครั้ง", "{id} · {cat} — {n} AI calls, sent back {r} times"),
+    "tj_new": ("เจอใหม่ {n}", "{n} new"), "tj_none": ("ไม่มีข้อใหม่", "nothing new"),
+    "tj_repeat": ("ซ้ำ · ไม่ค้นซ้ำ", "repeat · not re-run"), "tj_pass": ("ผ่าน", "passed"),
+    "tj_back": ("ส่งกลับ", "sent back"), "tj_invalid": ("รูปแบบไม่ครบ", "invalid fields"),
+    "tj_cut": ("คำตอบยาวเกิน ถูกตัด", "answer cut at the cap"),
+    "tj_hint": ("ระบบแนะนำให้อ่านส่วนที่ตัวตรวจซ้ำต้องการ", "the harness pointed to the passages the verifier needs"),
+    "tj_sum": ("เส้นทาง {n} ขั้น · ส่งกลับ {r} ครั้ง · ค้นแล้วไม่มีข้อใหม่ {x} ครั้ง · ค้นซ้ำ {y} ครั้ง",
+               "path of {n} steps · sent back {r} · searches with nothing new {x} · repeats {y}"),
+    "tj_old": ("ผลรันนี้เก่ากว่าการบันทึกเส้นทาง จึงแสดงเป็นรายการ", "This run predates path recording, so it is shown as a list"),
+    "lf_search": ("ค้น", "search"), "lf_read": ("อ่าน", "read"), "lf_submit": ("ส่งคำตอบ", "submit"),
+    "lf_verify": ("ตัวตรวจซ้ำ (โค้ด)", "verifier (code)"), "lf_report": ("เข้ารายงาน", "into the report"),
+    "lf_back": ("ไม่ผ่าน → ส่งกลับพร้อมเหตุผล (ไม่เกิน 2 ครั้ง)", "not passed → sent back with a reason (max 2)"),
+    "lf_harness": ("ระบบคุมทุกขั้น: ไม่เกิน 10 ขั้นต่อกฎ · เนื้อสัญญาเป็นข้อมูล ไม่ใช่คำสั่ง · ค้นซ้ำหรือไม่มีข้อใหม่ → เตือน · คำตอบยาวเกินถูกตัด",
+                   "Harness on every step: max 10 steps per rule · contract text is data, not instructions · repeated or empty searches → warned · runaway answers cut"),
     "v_ok": ("ตัวตรวจซ้ำ: ผ่าน", "Verifier: passed"), "v_score": (" (ข้อความตรง {s}/100)", " (quote match {s}/100)"),
     "v_back": ("ตัวตรวจซ้ำ: ส่งกลับ — {f}", "Verifier: sent back — {f}"),
     "vx_title": ("ตัวตรวจซ้ำ (โค้ด ไม่ใช่ AI) ตรวจคำตอบทุกข้อด้วย 2 เกณฑ์", "The verifier (code, not AI) checks every answer against 2 criteria"),
@@ -1763,13 +1776,64 @@ if view == "dash":
             st.rerun()
 
 # ================= tab 4: agent trace =================
+TJ_CSS = """<style>
+.tj { display:flex; flex-wrap:wrap; align-items:center; gap:6px 4px; margin:4px 0 8px; }
+.tj .c { border:1px solid #d6dbe6; background:#f4f6fa; border-radius:8px; padding:4px 9px; font-size:13px; line-height:1.35; }
+.tj .c small { display:block; color:#6b7184; font-size:11.5px; }
+.tj .c.read { background:#fff; }
+.tj .c.none, .tj .c.repeat { background:#fdf3dc; border-color:#e7b65a; }
+.tj .c.pass { background:#e5f5e5; border-color:#3f9b48; }
+.tj .c.back, .tj .c.invalid, .tj .c.cut { background:#fbe7e7; border-color:#d05c5c; }
+.tj .a { color:#9aa0b0; font-size:13px; }
+.lf { display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:13.5px; }
+.lf .s { border:1px solid #d6dbe6; border-radius:8px; padding:4px 10px; background:#fff; }
+.lf .s.code { border-style:dashed; } .lf .s.ok { background:#e5f5e5; border-color:#3f9b48; }
+.lf-back { color:#b42f2f; font-size:12.5px; margin-top:4px; } .lf-h { color:#6b7184; font-size:12.5px; margin-top:6px; }
+</style>"""
+
+
+def trajectory_html(path: list[dict]) -> str:
+    """One chip per step, in order; the verifier's verdict sits on the submission it judged."""
+    chips = []
+    for e in path:
+        ev, tool, arg = e.get("event"), e.get("tool"), ui.esc(str(e.get("arg", ""))[:40])
+        if ev == "output_cut":
+            chips.append(f"<span class='c cut'>✂ {t('tj_cut')}<small>step {e['step']}</small></span>")
+        elif tool == "search_contract":
+            cls, sub = ("repeat", t("tj_repeat")) if ev == "repeat" else \
+                       ("none", t("tj_none")) if ev == "no_new" else ("", t("tj_new", n=e.get("new", 0)))
+            chips.append(f"<span class='c {cls}'>🔍 {arg}<small>{sub}</small></span>")
+        elif tool == "read_passage":
+            cls = "repeat" if ev == "repeat" else "read"
+            sub = t("tj_repeat") if ev == "repeat" else f"step {e['step']}"
+            chips.append(f"<span class='c {cls}'>📖 {arg}<small>{sub}</small></span>")
+        elif tool == "submit_finding":
+            if ev == "pass":
+                sc = f" · {e['score']:.0f}/100" if e.get("score") else ""
+                chips.append(f"<span class='c pass'>📤 {arg} ✓<small>{t('tj_pass')}{sc}</small></span>")
+            elif ev == "sent_back":
+                crit = "2" if str(e.get("feedback", "")).startswith("Before concluding") else "1"
+                chips.append(f"<span class='c back'>📤 {arg} ✕<small>{t('tj_back')} · {'เกณฑ์' if st.session_state.lang == 'th' else 'criterion'} {crit}</small></span>")
+            else:
+                chips.append(f"<span class='c invalid'>📤 ✕<small>{t('tj_invalid')}</small></span>")
+    return TJ_CSS + "<div class='tj'>" + "<span class='a'>→</span>".join(chips) + "</div>"
+
+
+def loop_flow_html() -> str:
+    return (TJ_CSS + "<div class='cc-card' style='margin-bottom:10px'><div class='lf'>"
+            f"<span class='s'>🔍 {t('lf_search')}</span>→<span class='s'>📖 {t('lf_read')}</span>→"
+            f"<span class='s'>📤 {t('lf_submit')}</span>→<span class='s code'>{t('lf_verify')}</span>→"
+            f"<span class='s ok'>✓ {t('lf_report')}</span></div>"
+            f"<div class='lf-back'>↺ {t('lf_back')}</div><div class='lf-h'>{t('lf_harness')}</div></div>")
+
+
 if view == "trace":
     if not res:
         st.info(t("trace_hint"))
     else:
         recs = res["records"]
         llm = [x for x in recs if x["type"] == "llm"]
-        st.markdown(t("loop"))
+        st.html(loop_flow_html())
         st.html(f"<div class='cc-card' style='margin-bottom:10px'><div class='cc-label'>{t('vx_title')}</div>"
                 f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:8px'>"
                 f"<div><b>{t('vx_1')}</b><div class='cc-muted'>{t('vx_1d')}</div></div>"
@@ -1783,8 +1847,16 @@ if view == "trace":
         for r in res["report"].findings:
             f = r.finding
             with st.expander(t("trace_row", id=f.policy_id, cat=f.clause_category, n=r.steps, r=r.rejections)):
-                for i, call in enumerate(r.tool_calls, 1):
-                    st.markdown(f"`{i:>2}` {call}")
+                path = getattr(r, "trajectory", None) or []
+                if path:
+                    st.html(trajectory_html(path))
+                    st.caption(t("tj_sum", n=r.steps, r=r.rejections,
+                                 x=sum(e.get("event") == "no_new" for e in path),
+                                 y=sum(e.get("event") == "repeat" for e in path)))
+                else:
+                    st.caption(t("tj_old"))
+                    for i, call in enumerate(r.tool_calls, 1):
+                        st.markdown(f"`{i:>2}` {call}")
                 for v in [x for x in recs if x["type"] == "verify" and x["rule"] == f.policy_id]:
                     if v["ok"]:
                         st.success(t("v_ok1", s=f"{v['score']:.0f}") if v.get("score") else t("v_ok2"))

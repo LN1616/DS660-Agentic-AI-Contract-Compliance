@@ -29,6 +29,7 @@ class ReviewedFinding(BaseModel):
     steps: int = 0                      # LLM calls used
     rejections: int = 0                 # times the verifier sent it back
     tool_calls: list[str] = []
+    trajectory: list[dict] = []         # step-by-step path: {step, tool, arg, event, new}; empty on runs before 2026-11-21
     unchecked: bool = False             # no check was possible (single call says "no clause" without reading passages)
 
 

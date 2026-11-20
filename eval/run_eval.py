@@ -37,7 +37,10 @@ def grade(report, fname, rules, system, sec, totals):
         quoted = bool(r and r.finding.extracted_text.strip())
         rows.append({"system": system, "contract": fname[:40], "rule": rule["id"], "expected": exp, "predicted": pred,
                      "presence_correct": correct, "quoted": quoted,
-                     "quote_real": (r.quote_score or 0) >= 88 if quoted else None})
+                     "quote_real": (r.quote_score or 0) >= 88 if quoted else None,
+                     "steps": r.steps if r else None, "rejections": r.rejections if r else None,
+                     "repeats": sum(e.get("event") == "repeat" for e in r.trajectory) if r else None,
+                     "no_new": sum(e.get("event") == "no_new" for e in r.trajectory) if r else None})
     for row in rows:
         row.update(sec=sec / len(rows), cost_usd=totals["cost_usd"] / len(rows))
     return rows
