@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from eval.injection_test import SUMMARY_CLAIMS
+from eval.compare_versions import THB_PER_USD
 from eval.versions_html import build as versions_block
 
 OUT = Path("outputs")
@@ -93,6 +94,23 @@ def changes_rows():
     return rows, n_single, n_agent
 
 
+def type_block():
+    """Contract-type detection test (eval.type_eval): CUAD folder = answer key."""
+    d = pd.read_csv(OUT / "type_eval_rows.csv")
+    tr = json.load(open(sorted(glob.glob("traces/*_type_eval.json"))[-1], encoding="utf-8"))["totals"]
+    miss = d[~d.correct.astype(bool)]
+    by = miss.groupby("truth").predicted.apply(lambda x: ", ".join(sorted(set(map(str, x)))))
+    rows = "".join(f"<tr><td>{escape(t)}</td><td>{int((d.truth == t).sum() - (miss.truth == t).sum())}/{int((d.truth == t).sum())}</td>"
+                   f"<td>{escape(p)}</td></tr>" for t, p in by.items())
+    return f"""<div class="fig" id="fig-typetest">
+    <div class="fig-title"><h3>ระบุประเภทสัญญา (ก่อนเลือกนโยบาย)</h3><span class="small">eval/type_eval.py · 14 พ.ย. · รันรอบเดียว</span></div>
+    <p class="small">เฉลย = โฟลเดอร์ประเภทของ CUAD · สุ่ม 2 ฉบับต่อประเภท (seed คงที่) {d.truth.nunique()} ประเภท = {len(d)} ฉบับ · ถูก <b>{d.correct.mean():.0%} ({int(d.correct.sum())}/{len(d)})</b> ·
+    ต้นทุนทั้งชุด {tr['cost_usd'] * THB_PER_USD:.1f} บาท (${tr['cost_usd']:.2f}) · {tr['llm_calls']} call</p>
+    <div class="tbox"><table class="t" style="min-width:420px"><thead><tr><th>ประเภทที่พลาด (เฉลย)</th><th>ถูก</th><th>ระบบตอบว่า</th></tr></thead><tbody>{rows}</tbody></table></div>
+  </div>
+"""
+
+
 def main(out_path):
     reg = table(["รอบ", "โค้ด", "Agent มี/ไม่มีถูก", "Agent quote จริง", "Agent เวลา/ฉบับ", "Agent ต้นทุน/ฉบับ",
                  "Single มี/ไม่มีถูก", "Single quote จริง", "Single เวลา/ฉบับ", "Single ต้นทุน/ฉบับ",
@@ -105,11 +123,14 @@ def main(out_path):
 <section class="tab sd" id="tests" role="tabpanel" aria-labelledby="t-tests" hidden>
   <div class="head">
     <div class="eyebrow">บันทึกการทดสอบ · สร้างจากไฟล์ผลจริงด้วย eval/test_log_html.py · อัปเดตทุกครั้งที่รันใหม่</div>
-    <h2>ทุกการทดสอบตั้งแต่ 20 พ.ย. 2569</h2>
-    <p class="lead">ชุดทดสอบเดียวกันทุกรอบ: สัญญา CUAD 6 ฉบับ × กฎ CUAD 5 ข้อ (24 การตัดสินที่ให้คะแนนได้ต่อโหมด) · model gemini-3.5-flash-lite · temperature 0 · แต่ละรอบรันครั้งเดียว · ทุกตัวเลขในหน้านี้ดึงจากไฟล์ใน <code>contract-compliance-agent/outputs/</code></p>
+    <h2>ทุกการทดสอบ: วิธีวัด ผลเทียบทุกเวอร์ชัน และประวัติ</h2>
+    <p class="lead">ชุดทดสอบเดียวกันทุกรอบ: สัญญา CUAD 6 ฉบับ × กฎ CUAD 5 ข้อ (24 การตัดสินที่ให้คะแนนได้ต่อโหมด) · model gemini-3.5-flash-lite · temperature 0 · ตารางเทียบเวอร์ชันรัน 3 รอบต่อเวอร์ชัน ส่วนประวัติด้านล่างรันรอบละครั้ง · ทุกตัวเลขในหน้านี้ดึงจากไฟล์ใน <code>contract-compliance-agent/outputs/</code></p>
   </div>
 
   {versions_block()}
+  {type_block()}
+  <div class="head" style="margin-top:8px"><div class="eyebrow">ประวัติ · ก่อนใช้วิธีรัน 3 รอบ</div>
+    <p class="lead">ผลด้านล่างรันรอบเดียวต่อเวอร์ชัน (14–20 พ.ย.) ด้วยโค้ดทดสอบชุดก่อน เก็บไว้เพื่อให้เห็นลำดับการพัฒนา ตัวเลขที่ใช้เทียบเวอร์ชันคือตารางด้านบน</p></div>
   <div class="fig"><div class="fig-title"><h3>1 · Regression (ความแม่นไม่ลดหลังแก้)</h3><span class="small">ขั้นเฉลี่ย / ครบ 10 ขั้น / ส่งกลับ มีเฉพาะรอบที่บันทึกรายงานเต็ม (ตั้งแต่ข้อ 1)</span></div>
   {reg}
   <p class="small">"มี/ไม่มีถูก" = ระบบบอกถูกว่าสัญญามีข้อนั้นหรือไม่ (CUAD ให้คะแนนได้แค่นี้ ไม่มีเฉลยว่า COMPLIANT / DEVIATED / VIOLATED) · "quote จริง" = ข้อความที่อ้างหาเจอในสัญญา ≥ 88/100 · เวลารวมรอบที่ API ไม่ว่าง</p></div>
@@ -134,7 +155,7 @@ def main(out_path):
   ])}</div>
 
   <div class="fig"><div class="fig-title"><h3>5 · ไฟล์ผล (อยู่ในเครื่อง ไม่ขึ้น GitHub)</h3></div>
-  <p class="small">โฟลเดอร์ <code>contract-compliance-agent/outputs/</code>: <code>eval_rows_*.csv</code> (ผลรายกฎ) · <code>eval_summary_*.csv</code> · <code>eval_reports_after2/</code>, <code>eval_reports_step2/</code> (รายงานเต็ม มี quote และเส้นทาง) · <code>injection_*.csv</code> + <code>injection_*_summaries.json</code> · <code>injection/INJECTED*.pdf</code> (สัญญาที่ฝัง payload) · log: <code>step1_*.log</code>, <code>step2.log</code> · trace ทุก call: <code>traces/</code> · โค้ดทดสอบอยู่ใน repo: <code>eval/run_eval.py</code>, <code>eval/injection_test.py</code>, <code>eval/test_harness_offline.py</code>, <code>eval/test_log_html.py</code></p></div>
+  <p class="small">โฟลเดอร์ <code>contract-compliance-agent/outputs/</code>: <code>eval_rows_*.csv</code> (ผลรายกฎ) · <code>eval_summary_*.csv</code> · <code>versions/&lt;commit&gt;/run1–3/</code> (ผลรัน 3 รอบต่อเวอร์ชัน: eval_rows, injection_run, รายงานเต็ม, trace) · <code>versions/summary.csv</code>, <code>versions/per_run.csv</code> · <code>type_eval_rows.csv</code> · <code>eval_reports_after2/</code>, <code>eval_reports_step2/</code> (รายงานเต็ม มี quote และเส้นทาง) · <code>injection_*.csv</code> + <code>injection_*_summaries.json</code> · <code>injection/INJECTED*.pdf</code> (สัญญาที่ฝัง payload) · log: <code>step1_*.log</code>, <code>step2.log</code> · trace ทุก call: <code>traces/</code> · โค้ดทดสอบอยู่ใน repo: <code>eval/run_eval.py</code>, <code>eval/injection_test.py</code>, <code>eval/test_harness_offline.py</code>, <code>eval/test_log_html.py</code>, <code>eval/versions.py</code>, <code>eval/run_versions.py</code>, <code>eval/compare_versions.py</code>, <code>eval/type_eval.py</code> · วิธีทดสอบฉบับเต็ม: <code>docs/EVALUATION.md</code></p></div>
 </section>
 """
     Path(out_path).write_text(html, encoding="utf-8")

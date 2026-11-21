@@ -5,10 +5,12 @@ What CUAD can grade automatically:
   faithful  - for findings that quote the contract, is the quote really in the PDF?
 Plus time and cost from the trace.
 
-Usage:  python -m eval.run_eval  [number_of_contracts]
+Usage:  python -m eval.run_eval  [number_of_contracts] [--systems B2,A1] [--out DIR]
+        --out keeps rows, reports and traces of one run together (used by eval.run_versions for repeated runs).
 """
-import sys
+import argparse
 import time
+from pathlib import Path
 
 import pandas as pd
 
@@ -39,20 +41,26 @@ def grade(report, fname, rules, system, sec, totals):
                      "presence_correct": correct, "quoted": quoted,
                      "quote_real": (r.quote_score or 0) >= 88 if quoted else None,
                      "steps": r.steps if r else None, "rejections": r.rejections if r else None,
-                     "repeats": sum(e.get("event") == "repeat" for e in r.trajectory) if r else None,
-                     "no_new": sum(e.get("event") == "no_new" for e in r.trajectory) if r else None})
+                     # trajectory exists from V3 on; older versions only have tool_calls
+                     "repeats": sum(e.get("event") == "repeat" for e in getattr(r, "trajectory", [])) if r else None,
+                     "no_new": sum(e.get("event") == "no_new" for e in getattr(r, "trajectory", [])) if r else None,
+                     "tool_calls": "|".join(r.tool_calls) if r else ""})
     for row in rows:
         row.update(sec=sec / len(rows), cost_usd=totals["cost_usd"] / len(rows))
     return rows
 
 
-def main(n: int):
+def main(n: int, systems=("B2 single call", "A1 agent"), out=None):
+    if out:  # one folder per run: rows, full reports and traces
+        config.OUTPUT_DIR = Path(out)
+        config.TRACE_DIR = Path(out) / "traces"
+        config.TRACE_DIR.mkdir(parents=True, exist_ok=True)
     rules = config.load_playbook()
     rows = []
     for fname in DEV_SET[:n]:
         pdf = pdf_path(fname)
         doc = ContractDocument(pdf.stem, extract_pages(pdf, use_vision=False))
-        for system in ("B2 single call", "A1 agent"):
+        for system in systems:
             doc.reset()
             trace = Trace(f"eval_{system[:2]}_{pdf.stem[:20]}")
             t0 = time.time()
@@ -64,7 +72,7 @@ def main(n: int):
             (rep_dir / f"{system[:2]}_{pdf.stem[:30]}.json").write_text(rep.model_dump_json(indent=2), encoding="utf-8")
             print(f"done {system:<15} {fname[:50]}")
     df = pd.DataFrame(rows)
-    config.OUTPUT_DIR.mkdir(exist_ok=True)
+    config.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     df.to_csv(config.OUTPUT_DIR / "eval_rows.csv", index=False)
     summary = df.groupby("system").agg(
         presence_accuracy=("presence_correct", lambda s: s.dropna().astype(float).mean()),
@@ -76,5 +84,12 @@ def main(n: int):
     print("\n", summary.to_string())
 
 
+SYSTEMS = {"B2": "B2 single call", "A1": "A1 agent"}
+
 if __name__ == "__main__":
-    main(int(sys.argv[1]) if len(sys.argv) > 1 else len(DEV_SET))
+    ap = argparse.ArgumentParser()
+    ap.add_argument("n", nargs="?", type=int, default=len(DEV_SET))
+    ap.add_argument("--systems", default="B2,A1")
+    ap.add_argument("--out", default=None)
+    a = ap.parse_args()
+    main(a.n, tuple(SYSTEMS[x] for x in a.systems.split(",")), a.out)

@@ -1,0 +1,154 @@
+"""Registry of harness versions: which commit holds each version, which mode it is, and what its harness does step by step.
+Read by eval.run_versions (to re-run), eval.compare_versions (to score) and eval.versions_html (to show).
+Protocol and metric definitions: docs/EVALUATION.md
+"""
+
+# One run of a commit reviews the test set with the listed systems: B2 = single call, A1 = agent.
+COMMITS = {
+    "d69a714": {"B2": "SC1", "A1": "V1"},
+    "de66498": {"B2": "SC2", "A1": "V2"},
+    "cc21e1d": {"A1": "V3"},          # single-call code is the same as de66498 (SC2), not run again
+}
+
+VERSIONS = {
+    "SC1": {
+        "weakness_th": 'ไม่ใช่การแก้ แต่เป็นจุดตั้งต้น: เริ่มจากแบบที่ง่ายที่สุดก่อนตามหลักของรายวิชา (EP06) แล้วใช้เป็นเกณฑ์เทียบว่าการเพิ่มความซับซ้อนแต่ละขั้นคุ้มหรือไม่',
+        "prev": None,
+        "flow": [('PDF → ข้อความ (ใช้ตรวจ quote)', 'new'), ('ส่ง PDF ทั้งฉบับ + กฎ 5 ข้อ', 'new'), ('AI 1 call ตอบทุกกฎ (JSON)', 'new'), ('ตรวจ quote หลังได้คำตอบ', 'new'), ('รายงาน', '')],
+        "why_th": 'จุดตั้งต้น: เร็วและถูกที่สุด แต่ AI เห็นทั้งฉบับรวมถึงข้อความที่ฝังไว้ และไม่มีใครตรวจคำตอบก่อนออกรายงาน',
+        "target": [],
+        "mode": "B2", "commit": "d69a714",
+        "name_th": "Single call · เดิม",
+        "change_th": "ส่ง PDF ทั้งฉบับ + กฎทั้งหมด ให้ AI ตอบครั้งเดียว · ตรวจ quote หลังได้คำตอบ",
+        "concept": "Workflow แบบง่ายสุด (EP04, EP06)",
+        "steps_th": ['แยกข้อความ PDF เป็นส่วน ๆ (ใช้เฉพาะตรวจ quote หลังได้คำตอบ)', 'เรียก AI ครั้งเดียว: ส่ง PDF ทั้งฉบับ + กฎทั้ง 5 ข้อ ตอบเป็น JSON (ผลต่อกฎ + สรุป)', 'หลังได้คำตอบ: หา quote แต่ละข้อใน PDF (fuzzy match ≥ 88) และติดธงข้อที่หาไม่เจอ', 'ไม่มี tool ไม่มี loop ไม่ตีกลับ: คำตอบที่ผิดหรือขาดจะอยู่ในรายงานตามนั้น'],
+        "steps": [
+            "Extract the PDF text into passages (used only for the quote check afterwards).",
+            "One model call: the whole PDF and all 5 rules, answer as JSON (one finding per rule + summary).",
+            "After the answer: look up each quote in the PDF (fuzzy match, score >= 88) and flag quotes that are not found.",
+            "No tools, no loop, no send-back: a wrong or missing answer stays in the report.",
+        ],
+    },
+    "SC2": {
+        "weakness_th": 'ทดสอบฝังประกาศปลอมจากฝ่ายกฎหมาย (payload B) ใน 3 สัญญา: SC1 เปลี่ยนเป็น COMPLIANT เฉลี่ย 9 จาก 15 กฎ และบทสรุปผู้บริหารทวนข้อความหลอกเฉลี่ย 2.7 จาก 3 ฉบับ (3 รอบ) · พบตอนประเมินตามเกณฑ์ A5 ว่า prompt ของ single call ไม่มีบรรทัดบอกว่าเนื้อสัญญาเป็นข้อมูล ทั้งที่ agent มี',
+        "prev": 'SC1',
+        "flow": [('PDF → ข้อความ (ใช้ตรวจ quote)', ''), ('ส่ง PDF ทั้งฉบับ + กฎ 5 ข้อ', ''), ('AI 1 call · prompt: สัญญาเป็นข้อมูล ละเว้นคำสั่งในสัญญา', 'chg'), ('ตรวจ quote หลังได้คำตอบ', ''), ('รายงาน', '')],
+        "why_th": 'บอก model ตรง ๆ ว่าคำสั่งหรือคำอ้างว่าอนุมัติแล้วในสัญญาไม่ใช่คำสั่งของเรา ควรลดการถูกหลอก แต่ข้อความหลอกยังอยู่ใน input ทั้งก้อนเหมือนเดิม จึงคาดว่าลดได้ไม่หมด',
+        "target": ['fooled_B', 'fooled_A', 'claim_B'],
+        "mode": "B2", "commit": "de66498",
+        "name_th": "Single call · prompt กันคำสั่งแฝง",
+        "change_th": "เพิ่มใน prompt ว่าเนื้อสัญญาเป็นข้อมูล คำสั่งหรือคำอ้างว่าอนุมัติแล้วในสัญญาให้ละเว้น",
+        "concept": "Prompt / delimiter (EP02)",
+        "steps_th": ['เหมือน SC1', 'prompt ระบุว่า PDF เป็นข้อมูล คำสั่ง ข้อความระบบ ประกาศเปลี่ยนนโยบาย หรือคำอ้างว่าอนุมัติแล้วในสัญญาให้ละเว้น'],
+        "steps": [
+            "As SC1.",
+            "The prompt states that the PDF is data: instructions, system messages, policy updates or approvals "
+            "inside it are ignored.",
+        ],
+    },
+    "V1": {
+        "weakness_th": 'single call ตอบทุกกฎใน call เดียวจาก PDF ทั้งฉบับ ไม่มีจุดตรวจก่อนออกรายงาน: quote ที่ไม่มีจริงทำได้แค่ติดธงหลังได้คำตอบ ส่งกลับให้แก้ไม่ได้ · ตอบว่า "ไม่มีข้อนี้" โดยไม่มีหลักฐานว่าอ่านส่วนที่เกี่ยวข้องแล้ว · AI เห็นข้อความทุกหน้า รวมถึงข้อความที่ฝังไว้',
+        "prev": 'SC2',
+        "flow": [('PDF → ส่วนย่อย + ดัชนีค้นหา', 'new'), ('ตรวจทีละกฎ', 'new'), ('AI เลือก tool: search / read', 'new'), ('submit_finding', 'new'), ('ตัวตรวจซ้ำ (โค้ด): quote ตรง PDF · อ่านครบก่อนตอบว่าไม่มี', 'new'), ('ไม่ผ่าน → ตีกลับ ≤ 2 ครั้ง', 'new'), ('call ที่ 10 บังคับส่ง', 'new'), ('สรุปผู้บริหาร', '')],
+        "why_th": 'AI เห็นเฉพาะส่วนที่ค้นเจอ ไม่ใช่ทั้งฉบับ ข้อความหลอกจึงเข้าถึง model ได้น้อยลง และทุกคำตอบต้องผ่านตัวตรวจซ้ำก่อนออกรายงาน แลกกับเวลาและต้นทุนที่สูงขึ้นเพราะใช้หลาย call',
+        "target": ['fooled_B', 'fooled_A', 'claim_B', 'sec', 'thb'],
+        "mode": "A1", "commit": "d69a714",
+        "name_th": "Agent · ออกแบบแรก",
+        "change_th": "ReAct worker ต่อกฎ (search → read → submit) · ตัวตรวจซ้ำเป็นโค้ด ตีกลับได้ 2 ครั้ง · งบ 10 ขั้นต่อกฎ",
+        "concept": "ReAct (EP05) · evaluator-optimizer (EP04)",
+        "steps_th": ['แยกข้อความ PDF เป็นส่วน ๆ และสร้างดัชนีค้นหา TF-IDF', 'ตรวจทีละกฎ: prompt = ข้อความกฎ และสถานะที่ใช้เมื่อไม่มีข้อนี้ในสัญญา', 'วน tool ไม่เกิน 10 call ต่อกฎ: search_contract(คำค้น) คืน 5 ส่วนที่ใกล้ที่สุด · read_passage(id) คืนส่วนนั้นเต็ม ๆ', 'AI จบด้วย submit_finding (สถานะ ความเสี่ยง quote ตรงตัว ปัญหา ข้อความแก้)', 'ตัวตรวจซ้ำ (โค้ดธรรมดา ไม่ใช่ AI): quote ต้องตรงกับ PDF (≥ 88) · ตอบว่า "ไม่มีข้อนี้" ได้ต่อเมื่ออ่าน 3 ส่วนที่เกี่ยวข้องที่สุดครบแล้ว', 'ไม่ผ่าน: ส่งเหตุผลกลับให้ AI แก้ ไม่เกิน 2 ครั้งต่อกฎ', 'call ที่ 10: อนุญาตเฉพาะ submit_finding ทุกกฎจึงจบด้วยคำตอบเสมอ', 'อีก 1 call เขียนบทสรุปผู้บริหารจากผล 5 ข้อ'],
+        "steps": [
+            "Extract the PDF text into passages and build a TF-IDF search index.",
+            "For each rule separately: prompt = the rule text and the status to use when the clause is absent.",
+            "Tool loop, at most 10 model calls per rule: search_contract(query) returns the top 5 passages, "
+            "read_passage(id) returns one passage in full.",
+            "The model ends with submit_finding (status, risk, exact quote, issue, redline).",
+            "Verifier (plain code, not AI): the quote must match the PDF (score >= 88); a 'no clause' answer is "
+            "accepted only after the 3 passages ranked most relevant to the rule have been read in full.",
+            "Verifier fails: the reason is sent back to the model, at most 2 times per rule.",
+            "Step 10: only submit_finding is allowed, so every rule ends with an answer.",
+            "One more call writes the executive summary from the 5 findings.",
+        ],
+    },
+    "V2": {
+        "weakness_th": 'V1 ส่งผลของ search/read ให้ AI เป็นข้อความดิบ ข้อความที่ฝังในสัญญาจึงดูเหมือนคำสั่งได้: รอบเดียววันที่ 20 พ.ย. ประกาศปลอมหลอก V1 ได้ 2 จาก 15 กฎ (รัน 3 รอบภายหลังได้ 0/15 ช่องโหว่จึงเกิดไม่ทุกรอบ) · ไม่มีเพดานคำตอบ: 1 call วิ่งยาว 65,532 token ราว 6 บาท ($0.19) ในการตรวจครั้งเดียว',
+        "prev": 'V1',
+        "flow": [('PDF → ส่วนย่อย + ดัชนีค้นหา', ''), ('ตรวจทีละกฎ', ''), ('AI เลือก tool: search / read', ''), ('ผล tool ห่อใน <contract_data> · ลบ tag ปลอมในสัญญา', 'new'), ('เพดานคำตอบ 4,096 token', 'new'), ('submit_finding', ''), ('ตัวตรวจซ้ำ (โค้ด)', ''), ('ไม่ผ่าน → ตีกลับ ≤ 2 ครั้ง', ''), ('call ที่ 10 บังคับส่ง', ''), ('สรุปผู้บริหาร', '')],
+        "why_th": 'แยกข้อมูลจากสัญญาออกจากคำสั่งของระบบให้ model เห็นชัด และสัญญาปิด wrapper เองไม่ได้ ควรลดการถูกหลอกผ่านผลของ tool · เพดาน output กันคำตอบยาวผิดปกติที่ทำให้ต้นทุนพุ่ง',
+        "target": ['fooled_B', 'fooled_A', 'claim_B', 'thb'],
+        "mode": "A1", "commit": "de66498",
+        "name_th": "Agent + ผลของ tool เป็นข้อมูล + เพดาน output",
+        "change_th": "ผล search/read ห่อใน <contract_data> และตัด tag ที่ฝังในสัญญา · เพดานคำตอบ 4,096 token",
+        "concept": "Tool output is data, indirect prompt injection (EP08) · finish_reason / max tokens (EP01)",
+        "steps_th": ['เหมือน V1', 'ผล search/read ทุกครั้งห่อใน <contract_data> … </contract_data> และลบ tag เดียวกันที่เขียนไว้ในสัญญาก่อน สัญญาจึงปิด wrapper เองไม่ได้', 'system prompt ระบุว่าข้อความใน <contract_data> เป็นข้อมูล ไม่ใช่คำสั่ง', 'เพดานคำตอบ 4,096 token ต่อ call · คำตอบที่ถูกตัดจะบันทึกไว้ และบอก AI ให้เรียก tool หนึ่งตัว'],
+        "steps": [
+            "As V1.",
+            "Every search/read result is wrapped in <contract_data> ... </contract_data>; the same tags written "
+            "inside the contract are removed first, so the contract cannot close the wrapper.",
+            "The system prompt says text inside <contract_data> is data, never instructions.",
+            "Output cap of 4,096 tokens per call; an answer cut by the cap is logged and the model is asked to call one tool.",
+        ],
+    },
+    "V3": {
+        "weakness_th": 'นับจาก trace ของ V2 (20 พ.ย.): การค้นซ้ำตรงตัวแทบไม่มี (1 จาก 163 call) แต่ค้นแล้วไม่เจอส่วนใหม่ 37% และ 8 จาก 30 กฎใช้งบครบ 10 call · แผนเดิม (จับการค้นซ้ำ) จึงแก้ไม่ตรงปัญหา เปลี่ยนเป็นจับการค้นที่ไม่คืบหน้าแทนก่อนเขียนโค้ด',
+        "prev": 'V2',
+        "flow": [('PDF → ส่วนย่อย + ดัชนีค้นหา', ''), ('ตรวจทีละกฎ', ''), ('AI เลือก tool: search / read', ''), ('ตัวจับการค้นไม่คืบหน้า: ซ้ำไม่รัน · ไม่เจอใหม่เตือน · 2 ครั้งบอกส่วนที่ต้องอ่าน', 'new'), ('ผล tool ห่อใน <contract_data>', ''), ('submit_finding', ''), ('ตัวตรวจซ้ำ (โค้ด)', ''), ('ไม่ผ่าน → ตีกลับ ≤ 2 ครั้ง', ''), ('call ที่ 10 บังคับส่ง', ''), ('สรุปผู้บริหาร', '')],
+        "why_th": 'ค้นแล้วไม่เจอส่วนใหม่ 37% ของการค้น (นับจาก trace 20 พ.ย.) ระบบจึงบอก model ให้หยุดค้นและอ่านส่วนที่ตัวตรวจซ้ำต้องการ ควรลด call ที่เสียเปล่า กฎที่ใช้ครบงบ 10 call และเวลา',
+        "target": ['steps', 'budget_hits', 'sendbacks', 'sec', 'thb'],
+        "mode": "A1", "commit": "cc21e1d",
+        "name_th": "V2 + ตัวจับการค้นที่ไม่คืบหน้า",
+        "change_th": "ค้นซ้ำไม่รันซ้ำ · ค้นแล้วไม่เจอข้อใหม่ ระบบเตือน · 2 ครั้งติด บอกส่วนที่ต้องอ่านก่อนสรุปว่าไม่มี",
+        "concept": "Loop detection (EP08, EP09)",
+        "steps_th": ['เหมือน V2', 'search/read ซ้ำตรงตัว: ไม่รันซ้ำ ระบบแจ้งว่าผลเดิมอยู่ตรงไหน', 'ค้นแล้วไม่เจอส่วนใหม่ที่กฎนี้ยังไม่เคยเห็น: ระบบแจ้ง', 'เกิด 2 ครั้งติด: ระบบบอกส่วนที่ยังไม่อ่านซึ่งตัวตรวจซ้ำต้องการก่อนตอบว่า "ไม่มีข้อนี้"'],
+        "steps": [
+            "As V2.",
+            "Exact repeat of a search or read: not run again; a harness note says where the earlier result is.",
+            "Search that returns no passage this rule has not already seen: a harness note says so.",
+            "Two such searches in a row: the note names the unread passages the verifier needs before a 'no clause' answer.",
+        ],
+    },
+}
+
+# Planned versions: same card layout, no commit and no results yet. "target" = metrics that decide if it is kept.
+PLANNED = {
+    "V4": {
+        "weakness_th": 'agent ตรวจกฎทีละข้อ เวลาจึงเป็นผลรวมทุกกฎ: V1 เฉลี่ย 45 วิ/ฉบับ เทียบ single call 12 วิ (3 รอบ) และจะยาวขึ้นตามจำนวนกฎและหน้า · input token ของ agent ราว 7.9 เท่าของ single call เพราะผลค้นเก่าถูกส่งซ้ำทุก call · V3 รอบเดียววันที่ 20 พ.ย. ตัวตรวจซ้ำตีกลับเพิ่มจาก 9 เป็น 12 คำแนะนำของตัวจับการค้นอาจมาช้าไป',
+        "name_th": "V3 + ตรวจกฎแบบขนาน + งบ context",
+        "concept": "Parallelization (EP04) · context budget (EP07)",
+        "flow": [("PDF → ส่วนย่อย + ดัชนีค้นหา", ""), ("ตรวจทุกกฎพร้อมกัน (ขนาน)", "chg"),
+                 ("AI เลือก tool: search / read", ""),
+                 ("ตัวจับการค้นไม่คืบหน้า · บอกส่วนที่ต้องอ่านเร็วขึ้น", "chg"),
+                 ("งบ context: นับ token ก่อนส่ง · ตัดผลค้นเก่าที่ไม่ใช้ออก", "new"),
+                 ("ผล tool ห่อใน <contract_data>", ""), ("submit_finding", ""), ("ตัวตรวจซ้ำ (โค้ด)", ""),
+                 ("ไม่ผ่าน → ตีกลับ ≤ 2 ครั้ง", ""), ("call ที่ 10 บังคับส่ง", ""), ("สรุปผู้บริหาร", "")],
+        "why_th": "กฎแต่ละข้อไม่ขึ้นต่อกัน ตรวจพร้อมกันได้ เวลาจึงควรใกล้กฎที่ช้าที่สุดแทนผลรวมทุกกฎ · agent ใช้ input token ราว 7.9 เท่าของ single call เพราะส่งผลค้นเก่าทั้งหมดซ้ำทุก call การตัดผลเก่าควรลดต้นทุน · V3 รอบเดียววันที่ 20 พ.ย. ตีกลับเพิ่ม 9 → 12 จึงให้คำแนะนำเรื่องส่วนที่ต้องอ่านเร็วขึ้น",
+        "target": ["sec", "thb", "sendbacks"],
+    },
+    "V5": {
+        "weakness_th": 'การตรวจหนึ่งฉบับเป็นงานก้อนเดียว ถ้า API ล่มหรือถูกจำกัดกลางทาง ผลของกฎที่เสร็จแล้วหายทั้งหมดและต้องเริ่มใหม่ · พบจริงระหว่างทดสอบ: 14 พ.ย. API ตอบ overload ต้องรอ retry จนเวลาต่อฉบับขึ้นเป็น 130 วิ และรอบทดสอบ 21 พ.ย. หยุดกลางทางเพราะ API ใช้ต่อไม่ได้ ต้องรันรอบนั้นใหม่ทั้งรอบ',
+        "name_th": "V4 + model สำรอง · บันทึกผลทีละกฎ (ทำต่อได้)",
+        "concept": "Graceful failure, checkpoint (EP08)",
+        "flow": [("PDF → ส่วนย่อย + ดัชนีค้นหา", ""), ("ตรวจทุกกฎพร้อมกัน (ขนาน)", ""),
+                 ("เรียก AI: ล้ม → retry แบบสุ่มช่วงรอ → model สำรอง", "new"),
+                 ("AI เลือก tool + ตัวจับการค้นไม่คืบหน้า + งบ context", ""),
+                 ("submit_finding → ตัวตรวจซ้ำ (โค้ด)", ""),
+                 ("บันทึกผลทุกกฎลงไฟล์ทันที · รันใหม่ข้ามกฎที่เสร็จแล้ว", "new"), ("สรุปผู้บริหาร", "")],
+        "why_th": "สัญญายาวใช้หลายร้อย call ถ้า API ล่มกลางทางตอนนี้ต้องเริ่มใหม่ทั้งฉบับ · model สำรองและ checkpoint ทำให้ระบบตรวจจนจบได้ และไม่จ่ายซ้ำสำหรับกฎที่เสร็จแล้ว · ตัวชี้วัดชุดปัจจุบันวัดผลนี้ไม่ได้ ต้องเพิ่มการทดสอบที่จำลอง API ล่ม (นับรันที่จบได้ และ call ที่ต้องทำซ้ำ)",
+        "target": [],
+    },
+    "V6": {
+        "weakness_th": 'ทุกกฎได้งบ call เท่ากันไม่ว่าจะง่ายหรือยาก · tool ค้นได้แค่ข้อความใกล้คำค้น ตามไปอ่าน Exhibit หรือข้อที่ถูกอ้างถึงไม่ได้ ซึ่งจะเป็นปัญหาในสัญญายาว · ผลแต่ละกฎตัดสินแยกกัน ไม่มีขั้นที่ตรวจว่าผลข้อหนึ่งขัดกับอีกข้อ',
+        "name_th": "V5 + planner · tool ตามอ้างอิง · ตรวจข้อขัดกันข้ามข้อ",
+        "concept": "Orchestrator-workers (EP04) · planning, reflection (EP05)",
+        "flow": [("PDF → ส่วนย่อย + ดัชนีค้นหา", ""),
+                 ("Planner (AI): เลือกกฎ + งานเพิ่ม + งบ call ต่องาน", "new"),
+                 ("validate_plan (โค้ด): กฎที่ต้องมีอยู่ครบ · งบไม่เกินเพดาน", "new"),
+                 ("ตรวจทุกงานพร้อมกัน", ""),
+                 ("AI เลือก tool: search / read / follow_reference / lookup_definition", "chg"),
+                 ("submit_finding → ตัวตรวจซ้ำ (โค้ด)", ""),
+                 ("Cross-check reviewer (AI): หาผลที่ขัดกันข้ามข้อ · ต้องอ้าง finding จริง", "new"),
+                 ("สรุปผู้บริหาร", "")],
+        "why_th": "งบ call ไปลงข้อที่ยาก แทนการให้ทุกกฎได้งบเท่ากัน · ตามไปอ่าน Exhibit หรือข้อที่ถูกอ้างถึงได้ ซึ่งเป็นจุดอ่อนของสัญญายาว · จับคำตอบที่ขัดกันเองข้ามข้อ · ต้องพิสูจน์บนสัญญายาว (ข้อ 9) เพราะสัญญาสั้น 6 ฉบับอาจไม่เห็นผล และ planner เพิ่ม 1–2 call ต่อฉบับ",
+        "target": ["presence", "steps", "budget_hits", "thb"],
+    },
+}

@@ -70,6 +70,15 @@ python run_review.py --cuad FUSION --baseline   # single-call baseline, same con
 python -m eval.run_eval 6                       # baseline vs agent on 6 contracts → outputs/eval_summary.csv
 ```
 
+### Comparing harness versions
+
+Every version (single call SC1–SC2, agent V1–V3) is re-run from its own commit under one fixed test, 3 times, and scored by the same code. Protocol, metric definitions and the rule for calling a difference real: [docs/EVALUATION.md](docs/EVALUATION.md). Results and each version's harness steps: [docs/version_results.md](docs/version_results.md).
+
+```bash
+python -m eval.run_versions 3      # each commit in eval/versions.py, 3 runs → outputs/versions/<commit>/run<k>/
+python -m eval.compare_versions    # mean and min–max per version → docs/version_results.md
+```
+
 ## Interface
 
 ```bash
