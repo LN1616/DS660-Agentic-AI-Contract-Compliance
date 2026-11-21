@@ -33,7 +33,9 @@ class Trace:
                 code = getattr(e, "code", None)
                 if "timeout" in type(e).__name__.lower() or "timed out" in str(e).lower():
                     code = "timeout"  # hung connection cut by config.CALL_TIMEOUT_MS: retry like an overload
-                if code not in (429, 500, 503, "timeout") or attempt == retries:
+                elif type(e).__module__.split(".")[0].rstrip("0123456789") in ("httpx", "httpcore"):
+                    code = "network"  # dropped connection (seen with 5 rules calling at once): retry too
+                if code not in (429, 500, 503, "timeout", "network") or attempt == retries:
                     raise
                 wait = min(60, 5 * 2 ** attempt)
                 self.records.append({"type": "retry", "label": label, "code": code, "wait_sec": wait})
