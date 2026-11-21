@@ -365,6 +365,51 @@ def long_matrix_block():
 """
 
 
+def budget_block():
+    """Why the call budget is 10: how many calls per rule the agent really used (saved runs, no API)."""
+    import glob
+    rows = []
+    def add(label, frames, cap):
+        d = pd.concat(frames) if frames else None
+        if d is None or d.empty:
+            return
+        s = d.steps.dropna()
+        rows.append(f"<tr><td>{label}</td><td>{len(s)}</td><td>{s.median():.0f}</td><td>{s.mean():.1f}</td><td>{int(s.max())}</td>"
+                    f"<td>{int((s >= cap).sum())}/{len(s)} ({(s >= cap).mean():.0%})</td><td>{cap}</td></tr>")
+    for vid, v in VERSIONS.items():
+        if v["mode"] != "A1":
+            continue
+        fr = [pd.read_csv(f) for f in glob.glob(str(OUT / "versions" / v["commit"] / "run*" / "eval_rows.csv"))]
+        add(f"{vid} · สัญญาสั้น", [f[f.system == "A1 agent"] for f in fr], 10)
+    for vid, commit, mode in LONG_SET:
+        if mode == "A1":
+            fr = [pd.read_csv(d / "eval_rows.csv") for d in _long_runs(commit)]
+            add(f"{vid} · สัญญายาว", [f[f.system == "A1 agent"] for f in fr], 10)
+    side = OUT / "long_round" / "run2_budget" / "eval_rows.csv"
+    if side.exists():
+        f = pd.read_csv(side)
+        add("V6 · สัญญายาว · ทดลองงบ 16 (1 รอบ)", [f[f.system == "A1 agent"]], 16)
+    if not rows:
+        return ""
+    return f"""<div class="fig" id="fig-budget">
+    <div class="fig-title"><h3>งบ call ต่อกฎ: ทำไมใช้ 10 และถ้าไม่จำกัดจะใช้เท่าไร</h3><span class="small">จากผลที่เก็บไว้ทุกรอบ ไม่เรียก API · 1 แถว = ทุกกฎทุกรอบของเวอร์ชันนั้น</span></div>
+    <div class="tbox"><table class="t" style="min-width:620px"><thead><tr><th></th><th>จำนวนกฎ</th><th>call ต่อกฎ (มัธยฐาน)</th><th>ค่าเฉลี่ย</th><th>สูงสุด</th><th>ใช้ครบงบ</th><th>งบ</th></tr></thead>
+    <tbody>{''.join(rows)}</tbody></table></div>
+    <ul class="small">
+      <li><b>ถ้าไม่จำกัด ไม่มีเพดานตามธรรมชาติ:</b> กฎหนึ่งจบเมื่อ agent ส่งคำตอบแล้วตัวตรวจซ้ำผ่าน หรือส่งครบ 3 ครั้ง (ตีกลับได้ 2 ครั้ง MAX_REJECTIONS) เท่านั้น ·
+        ถ้า agent ค้นไปเรื่อย ๆ โดยไม่ส่งคำตอบ ไม่มีอะไรหยุดนอกจากงบ call · งบจึงเป็นตัวกันวนไม่จบและต้นทุนบานปลาย</li>
+      <li><b>ที่มาของ 10 (ตั้งตั้งแต่ V1):</b> สัญญาสั้นใช้ราว 5–6 call ต่อกฎ · 10 เผื่อการตีกลับ 1–2 ครั้ง · ทุกเวอร์ชันใช้ 10 เท่ากัน ผลจึงเทียบกันได้ ·
+        ค่า "สูงสุด 10" ในตารางเวอร์ชันคือเพดาน ไม่ใช่สิ่งที่วัดได้</li>
+      <li><b>ทดลองงบ 16 บนสัญญายาว (V6 1 รอบ):</b> ใช้ครบงบลดลง แต่มี/ไม่มีถูก 9 → 8/16 · ต้นทุน 1.11 → 1.51 บาทต่อฉบับ (+36%) ·
+        บางกฎใช้ครบ 16 แล้วยังผิด คือ agent ค้นด้วยคำใหม่ไปเรื่อย ๆ ไม่ได้ขาดแค่ call · และข้อที่ผิดผ่านตัวตรวจซ้ำ แทนที่จะถูกติดธงให้คนตรวจ
+        → งบ 10 ทำหน้าที่เป็นตาข่ายนิรภัยด้วย: เมื่อหมดงบ คำตอบถูกติดธงให้คนตรวจ · ปิดงบตามความยาวไว้ (MAX_STEPS_LONG)</li>
+      <li><b>call สูงสุดต่อฉบับ</b> (5 กฎ + สรุปผู้บริหาร 1 + cross-check 1 ตั้งแต่ V6): งบ 10 = 52 call · งบ 16 = 82 call · ไม่จำกัด = ไม่มีเพดาน ·
+        กฎตรวจพร้อมกัน ค่าที่ใช้จริงราว 32–37 call ต่อฉบับ (สัญญาสั้น)</li>
+    </ul>
+  </div>
+"""
+
+
 def _old_long_matrix_block():
     """Superseded: 1-run long round (kept for the record)."""
     runs = [("single call", OUT / "long_round" / "run1", "B2"), ("V6 · งบ 10 call", OUT / "long_round" / "run1", "A1"),
@@ -489,7 +534,7 @@ def build():
              + ["–"] * (len(COLS) + 3) for a, (b, c) in ((k, (v["name_th"], v["concept"])) for k, v in PLANNED.items())]
     th = "".join(f"<th>{escape(h)}</th>" for h in head)
     tb = "".join(r if isinstance(r, str) else "<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
-    return protocol_block() + setup_block() + answer_matrix_block() + long_table_block() + long_matrix_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
+    return protocol_block() + setup_block() + answer_matrix_block() + long_table_block() + long_matrix_block() + budget_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
     <div class="fig-title"><h3>วิวัฒนาการของระบบ: แต่ละเวอร์ชันเปลี่ยน harness อะไร และผลเปลี่ยนอย่างไร</h3><span class="small">ค่าเฉลี่ยของรอบที่รัน · ตัวเลขเล็กคือช่วงต่ำสุด–สูงสุด (แสดงเมื่อรอบต่างกัน)</span></div>
     <p class="note"><b>สถานะ:</b> {status}</p>
     <p class="small">Baseline: SC1 → SC2 · Agent: {' → '.join(k for k in VERSIONS if k.startswith('V'))}{(" → <span class='small'>" + ' → '.join(PLANNED) + " (แผน)</span>") if PLANNED else ""}</p>
