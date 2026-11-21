@@ -527,7 +527,7 @@ with st.sidebar:
     mode = pick(st.radio, "method", ["m_agent", "m_baseline"], format_func=label_fn(st.session_state.lang),
                 label_visibility="collapsed", captions=[t("cap_agent"), t("cap_single")])
     vision = st.toggle(t("vision"), value=True)
-    st.caption(f"Model: `{config.MODEL}`")
+    st.caption(f"Model: `{config.MODEL}` · Harness: `{config.release_name()}`")
     run = st.button(t("run"), type="primary", width="stretch",
                     disabled=n_rules == 0 or (source == "c_upload" and upload is None))
 
@@ -949,7 +949,7 @@ START = {
         "how": [("เลือกภาษา", "แถบซ้ายบนสุด ผลที่ AI เขียนจะเป็นภาษานั้น"),
                 ("เลือกนโยบาย", "<b>อัตโนมัติ</b> (แนะนำ): ใช้คลังนโยบายตามประเภทสัญญา · <b>กำหนดเอง</b>: ใช้กฎชุดเดียวกับทุกสัญญา · แก้ไขได้ที่แท็บ ④"),
                 ("อัปโหลดสัญญา", "PDF ภาษาไทยหรืออังกฤษ ถ้าเป็นไฟล์สแกนหรือข้อความไทยอ่านไม่ออก ให้เปิดสวิตช์ vision"),
-                ("เลือกวิธีตรวจ", "<b>Agent</b>: ตรวจละเอียดและยืนยันทุกข้อ ประมาณ 1–2 นาที · <b>Baseline</b>: เรียก AI ครั้งเดียว เร็วกว่าแต่ไม่ได้ตรวจซ้ำ"),
+                ("เลือกวิธีตรวจ", "<b>Agent</b>: ตรวจละเอียดและยืนยันทุกข้อ ประมาณ 1–2 นาที · <b>Single call</b>: เรียก AI ครั้งเดียว เร็วกว่าแต่ไม่ได้ตรวจซ้ำ"),
                 ("กดวิเคราะห์สัญญา", "ระหว่างทำงานจะเห็น agent ตรวจทีละข้อ เสร็จแล้วไปที่แดชบอร์ดเอง · ดาวน์โหลด Excel ได้")],
         "tabs_title": "แต่ละแท็บใช้ทำอะไร",
         "tabs": [("② สัญญาทั้งหมด", "ผลที่เคยตรวจ ค้นหาและคลิกแถวเพื่อเปิด"),
@@ -973,7 +973,7 @@ START = {
         "how": [("Pick a language", "Top of the sidebar. AI-written text follows it"),
                 ("Choose the policy", "<b>Automatic</b> (recommended): the policy library by contract type · <b>Manual</b>: one rule set for every contract · edit in tab ④"),
                 ("Upload the contract", "Thai or English PDF. For scans or unreadable Thai text, keep the vision switch on"),
-                ("Choose the method", "<b>Agent</b>: thorough, every finding verified, about 1–2 minutes · <b>Baseline</b>: one AI call, faster, not verified"),
+                ("Choose the method", "<b>Agent</b>: thorough, every finding verified, about 1–2 minutes · <b>Single call</b>: one AI call, faster, not verified"),
                 ("Press Analyse contract", "You see the agent work rule by rule, then the dashboard opens · Excel download available")],
         "tabs_title": "What each tab is for",
         "tabs": [("② Portfolio", "Every past review. Search, click a row to open it"),

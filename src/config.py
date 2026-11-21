@@ -37,6 +37,12 @@ V6_TOOLS = os.getenv("V6_TOOLS") == "1"
 CROSS_CHECK = os.getenv("CROSS_CHECK") == "1"
 V7_MISSING_PROMPT = os.getenv("V7_MISSING_PROMPT") == "1"
 
+
+def release_name() -> str:
+    """Shown in the app: V5 + H by default, plus any measured extra that is switched on."""
+    extra = [name for on, name in ((V6_TOOLS, "V6 tools"), (CROSS_CHECK, "cross-check"), (V7_MISSING_PROMPT, "V7 prompt")) if on]
+    return "V5 + H" + ("".join(f" + {e}" for e in extra))
+
 # Package H (EP01 builder's dials). While measuring, a fallback model would mix two models into one run (EP01 "lock
 # the provider"): eval.run_versions sets EVAL_NO_FALLBACK=1. The app keeps the fallback.
 EVAL_NO_FALLBACK = os.getenv("EVAL_NO_FALLBACK") == "1"
