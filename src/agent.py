@@ -10,7 +10,9 @@ Limits: MAX_STEPS LLM calls per rule, MAX_REJECTIONS send-backs.
 """
 import hashlib
 import json
+import queue
 import re
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from google.genai import types
 from pydantic import ValidationError
@@ -104,6 +106,7 @@ class ProgressGuard:
         self.rule, self.doc = rule, doc
         self.done: dict[str, int] = {}   # fingerprint -> step
         self.seen: set[str] = set()      # passages shown to this rule
+        self.read: set[str] = set()      # passages THIS rule read in full (own record: rules run in parallel)
         self.streak = 0
 
     @staticmethod
@@ -112,7 +115,7 @@ class ProgressGuard:
 
     def advice(self) -> str:
         top = self.doc.ranked_ids(f"{self.rule['title']} " + " ".join(self.rule["keywords"]), k=3)
-        unread = [p for p in top if p not in self.doc.read_ids]
+        unread = [p for p in top if p not in self.read]
         if unread:
             return (f"More searching is unlikely to help. Read {unread} in full (the verifier requires these "
                     f"before a MISSING answer), then call submit_finding.")
@@ -130,6 +133,8 @@ class ProgressGuard:
         ids = [p["passage_id"] for p in raw] if isinstance(raw, list) else ([raw["passage_id"]] if "passage_id" in raw else [])
         new = [i for i in ids if i not in self.seen]
         self.seen |= set(ids)
+        if tool == "read_passage":
+            self.read |= set(ids)
         result = as_contract_data(raw)
         event = "ok"
         if tool == "search_contract":
@@ -144,12 +149,14 @@ class ProgressGuard:
         return result, {"step": step, "tool": tool, "arg": arg, "event": event, "new": len(new)}
 
 
-def verify(f: ClauseFinding, rule: dict, doc: ContractDocument) -> tuple[bool, str, int | None, float | None]:
-    """Plain-code checks. Returns (ok, feedback, page, score)."""
+def verify(f: ClauseFinding, rule: dict, doc: ContractDocument,
+           read_ids: set[str] | None = None) -> tuple[bool, str, int | None, float | None]:
+    """Plain-code checks. Returns (ok, feedback, page, score).
+    read_ids: passages this rule read in full (default: the document-wide record)."""
     if f.compliance_status == "MISSING" or (f.compliance_status == "COMPLIANT" and not f.extracted_text.strip()):
         # Claiming "no clause" needs evidence: the most relevant passages must have been READ in full.
         top = doc.ranked_ids(f"{rule['title']} " + " ".join(rule["keywords"]), k=3)
-        unread = [p for p in top if p not in doc.read_ids]
+        unread = [p for p in top if p not in (doc.read_ids if read_ids is None else read_ids)]
         if unread:
             return False, (f"Before concluding there is no clause, use read_passage on {unread} "
                            f"and check them against the rule."), None, None
@@ -220,7 +227,7 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
                     result = {"rejected": f"Invalid fields: {e.errors()[:3]}"}
                     path.append({"step": step, "tool": fc.name, "arg": "", "event": "invalid", "new": 0})
                 else:
-                    ok, feedback, page, score = verify(finding, rule, doc)
+                    ok, feedback, page, score = verify(finding, rule, doc, guard.read)
                     trace.event("verify", rule=rule["id"], ok=ok, feedback=feedback, score=score)
                     path.append({"step": step, "tool": fc.name, "arg": finding.compliance_status,
                                  "event": "pass" if ok else "sent_back", "new": 0, "score": score,
@@ -252,16 +259,52 @@ def summarize(doc: ContractDocument, findings: list[ReviewedFinding], trace: Tra
     return (resp.text or "").strip()
 
 
+def check_rules(doc: ContractDocument, rules: list[dict], trace: Trace, lang: str = "th", on_step=None,
+                on_tool=None, on_done=None, context: str = "") -> list[ReviewedFinding]:
+    """Sectioning: the rules do not depend on each other, so each one is checked by its own worker at the
+    same time (config.PARALLEL_RULES at once). Time per contract ~ the slowest rule, not the sum.
+    Callbacks always run on the calling thread (Streamlit can only draw from there); findings keep rule order."""
+    workers = max(1, min(config.PARALLEL_RULES, len(rules)))
+    if workers == 1:
+        out = []
+        for rule in rules:
+            if on_step:
+                on_step(rule)
+            out.append(check_rule(rule, doc, trace, lang, on_tool, context))
+            if on_done:
+                on_done(rule, out[-1])
+        return out
+
+    events: queue.Queue = queue.Queue()
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {}
+        for i, rule in enumerate(rules):
+            if on_step:
+                on_step(rule)
+            futures[pool.submit(check_rule, rule, doc, trace, lang,
+                                (lambda r, c: events.put((r, c))) if on_tool else None, context)] = i
+        pending, results = set(futures), [None] * len(rules)
+
+        def drain():
+            while on_tool and not events.empty():
+                on_tool(*events.get())
+
+        while pending:
+            done, pending = wait(pending, timeout=0.3, return_when=FIRST_COMPLETED)
+            drain()
+            for f in done:
+                i = futures[f]
+                results[i] = f.result()  # re-raises a worker's error here
+                if on_done:
+                    on_done(rules[i], results[i])
+        drain()
+    return results
+
+
 def review(doc: ContractDocument, rules: list[dict], trace: Trace, on_step=None, lang: str = "th",
            on_tool=None, on_done=None, context: str = "") -> ContractAuditReport:
     """on_step(rule) before a rule, on_tool(rule, call) on every tool call, on_done(rule, finding) after.
     context: optional line about contract type and parties (from criteria.profile_contract)."""
-    findings = []
-    for rule in rules:
-        if on_step:
-            on_step(rule)
-        findings.append(check_rule(rule, doc, trace, lang, on_tool, context))
-        if on_done:
-            on_done(rule, findings[-1])
+    findings = check_rules(doc, rules, trace, lang, on_step, on_tool, on_done, context)
     return ContractAuditReport(contract_title=doc.title, executive_summary=summarize(doc, findings, trace, lang),
                                findings=findings)

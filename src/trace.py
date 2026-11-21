@@ -1,5 +1,6 @@
 """Harness logging: every LLM call's tokens, latency and estimated cost."""
 import json
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -9,6 +10,7 @@ from . import config
 
 class Trace:
     _last_call = 0.0  # shared across runs in one process, for pacing
+    _pace = threading.Lock()
 
     def __init__(self, run_name: str):
         self.run_name = run_name
@@ -17,10 +19,11 @@ class Trace:
     def call(self, fn, label: str, retries: int = 4):
         """Run one LLM call. Paces calls (MIN_CALL_GAP seconds apart, free-tier friendly) and
         retries on overload (503) and rate limit (429) with backoff."""
-        gap = config.MIN_CALL_GAP - (time.time() - Trace._last_call)
-        if gap > 0:
-            time.sleep(gap)
-        Trace._last_call = time.time()
+        with Trace._pace:  # rules checked in parallel share one pace: call STARTS stay MIN_CALL_GAP apart
+            gap = config.MIN_CALL_GAP - (time.time() - Trace._last_call)
+            if gap > 0:
+                time.sleep(gap)
+            Trace._last_call = time.time()
         t0 = time.time()
         for attempt in range(retries + 1):
             try:

@@ -1238,7 +1238,7 @@ if run or revise:
         row = prog["rows"][rule["id"]]
         row.update(state="done", chip=ui.chip(r.finding.compliance_status) + " " + ui.risk_chip(r.finding.risk_level),
                    note=t("pb_calls", n=r.steps, r=r.rejections))
-        if rule is active[-1]:
+        if all(v["state"] == "done" for v in prog["rows"].values()):  # rules finish in any order (parallel)
             prog["foot"] = t("pb_summary")
         draw()
 

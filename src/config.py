@@ -15,6 +15,7 @@ PRICE_OUT_PER_M = float(os.getenv("PRICE_OUT_PER_M", "2.50"))
 
 MAX_STEPS = int(os.getenv("MAX_STEPS", "10"))      # LLM calls allowed per policy rule
 MAX_REJECTIONS = int(os.getenv("MAX_REJECTIONS", "2"))  # verifier send-backs per rule
+PARALLEL_RULES = int(os.getenv("PARALLEL_RULES", "5"))  # rules checked at the same time (1 = one after another)
 MIN_CALL_GAP = float(os.getenv("MIN_CALL_GAP", "4.5"))  # seconds between AI calls (free tier ~15 requests/min)
 
 CUAD_DIR = Path(os.getenv("CUAD_DIR", ROOT.parent / "CUAD_v1" / "CUAD_v1"))
