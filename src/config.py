@@ -18,6 +18,11 @@ MAX_REJECTIONS = int(os.getenv("MAX_REJECTIONS", "2"))  # verifier send-backs pe
 PARALLEL_RULES = int(os.getenv("PARALLEL_RULES", "5"))  # rules checked at the same time (1 = one after another)
 CALL_TIMEOUT_MS = int(os.getenv("CALL_TIMEOUT_MS", "120000"))  # one AI call; a dropped connection otherwise hangs
 MIN_CALL_GAP = float(os.getenv("MIN_CALL_GAP", "4.5"))  # seconds between AI calls (free tier ~15 requests/min)
+# V5 harness
+FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "")  # used when MODEL still fails after RETRIES_BEFORE_FALLBACK; "" = off
+RETRIES_BEFORE_FALLBACK = int(os.getenv("RETRIES_BEFORE_FALLBACK", "2"))
+CONTEXT_BUDGET_CHARS = int(os.getenv("CONTEXT_BUDGET_CHARS", "16000"))  # ~4,000 tokens of conversation per rule
+CHECKPOINT_DIR = Path(os.getenv("CHECKPOINT_DIR", ROOT / "outputs" / "checkpoints"))
 
 CUAD_DIR = Path(os.getenv("CUAD_DIR", ROOT.parent / "CUAD_v1" / "CUAD_v1"))
 PLAYBOOK_PATH = ROOT / "data" / "policy_playbook.yaml"

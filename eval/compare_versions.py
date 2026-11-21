@@ -39,6 +39,8 @@ METRICS = [
     ("Exact repeat tool calls", "repeats", "{:.1f}", False),
     ("Seconds per contract", "sec", "{:.0f}", False),
     ("Baht per contract", "thb", "{:.2f}", False),
+    ("Input tokens per contract (thousands)", "tok_in", "{:.1f}", False),
+    ("Calls answered by the fallback model", "fallback", "{:.0f}", False),
     ("Issue text faithful to the contract (claims supported)", "faith_issue", "{:.0%}", True),
     ("Summary faithful to the findings (claims supported)", "faith_summary", "{:.0%}", True),
     ("Issue text faithful, facts only (advice removed)", "faith_issue_fact", "{:.0%}", True),
@@ -64,6 +66,11 @@ def score_run(vid: str, run_dir: Path) -> dict:
            "quote_real": z.quote_real.dropna().astype(bool).mean(),
            "sec": z.sec.sum() / n, "usd": z.cost_usd.sum() / n}
     out["thb"] = out["usd"] * THB_PER_USD
+    traces = [json.load(open(f, encoding="utf-8")) for f in glob.glob(str(run_dir / "traces" / f"*_eval_{v['mode']}_*.json"))]
+    if traces:
+        out["tok_in"] = sum(t["totals"]["tokens_in"] for t in traces) / n / 1000
+        # each switch to the fallback model (V5+) is logged once, right before the call the fallback answered
+        out["fallback"] = sum(r.get("type") == "fallback" for t in traces for r in t["records"])
     inj = pd.read_csv(run_dir / "injection_run.csv")
     inj = inj[inj.system == system]
     for var in "AB":

@@ -585,6 +585,8 @@ TEXT.update({
     "pb_calls": ("{n} AI calls · ส่งกลับ {r}", "{n} AI calls · sent back {r}"),
     "pb_summary": ("กำลังเขียนสรุปสำหรับผู้บริหาร ...", "Writing the executive summary ..."),
     "pb_single": ("Single call: ส่งสัญญาทั้งฉบับให้ AI ครั้งเดียว ...", "Single call: sending the whole contract in one AI call ..."),
+    "resume_hint": ("กดวิเคราะห์อีกครั้งได้เลย ระบบเก็บผลของกฎที่ตรวจเสร็จแล้วไว้ จะตรวจต่อเฉพาะกฎที่เหลือ",
+                    "Press analyse again: finished rules were saved, so only the remaining rules are checked."),
     "skel_hint": ("ผลจะแสดงที่นี่หลังกด **วิเคราะห์สัญญา** · ระหว่างทำงานจะเห็นความคืบหน้าของ agent ทีละข้อ",
                   "Results appear here after **Analyse contract** · while it runs you see the agent's progress rule by rule"),
     "p_open": ("ดูแดชบอร์ด", "Open dashboard"),
@@ -1286,13 +1288,15 @@ if run or revise:
             draw()
         if mode == "m_agent":
             report = review(doc, active, trace, lang=lang, on_step=on_step, on_tool=on_tool, on_done=on_done,
-                            context=context)
+                            context=context, resume=True)  # stopped by an outage: running again skips finished rules
         else:
             prog["foot"] = t("pb_single")
             draw()
             report = review_single_call(pdf, doc, active, trace, lang=lang, context=context)
     except Exception as e:
         st.error(f"{type(e).__name__}: {str(e)[:300]}")
+        if mode == "m_agent":
+            st.info(t("resume_hint"))
         st.stop()
     seconds = time.time() - t0
     js, xlsx = save(report, config.OUTPUT_DIR, trace.run_name)

@@ -7,11 +7,15 @@ The harness (this file) decides what happens to each tool call:
     - submit_finding: validate with Pydantic, then run the verifier.
       Rejected -> the reason goes back to the LLM as the tool result and the loop continues.
 Limits: MAX_STEPS LLM calls per rule, MAX_REJECTIONS send-backs.
+V5 harness: context budget (old search results become short stubs) · advice at the first search with nothing new ·
+fallback model (Trace.call_model) · one format for tool errors · checkpoint per rule (resume after a failure).
 """
 import hashlib
 import json
 import queue
 import re
+import shutil
+from pathlib import Path
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from google.genai import types
@@ -50,14 +54,17 @@ LANGUAGES = {"th": "Thai", "en": "English"}
 TOOLS = types.Tool(function_declarations=[
     types.FunctionDeclaration(
         name="search_contract",
-        description="Search the contract. Returns up to 5 passages (id, section, page, first 700 characters).",
+        description=("Search the contract with legal words or a section number (e.g. '12.3'). Returns up to 5 "
+                     "passages (id, section, page, first 700 characters). If a search brings nothing new, read the "
+                     "passages the harness names instead of searching again."),
         parameters_json_schema={"type": "object",
                                 "properties": {"query": {"type": "string", "description": "Words to search for"}},
                                 "required": ["query"]},
     ),
     types.FunctionDeclaration(
         name="read_passage",
-        description="Read one passage in full. Also returns the id of the next passage, for clauses that continue.",
+        description=("Read one passage in full by its id (e.g. P12). Needed before quoting it, and before concluding "
+                     "a clause is missing. Also returns the id of the next passage, for clauses that continue."),
         parameters_json_schema={"type": "object",
                                 "properties": {"passage_id": {"type": "string", "description": "e.g. P12"}},
                                 "required": ["passage_id"]},
@@ -84,7 +91,7 @@ def as_contract_data(result) -> str:
     Plain text, not JSON: JSON escapes quotes and line breaks, and a copied escape breaks the verbatim quote check.
     Any wrapper tag inside the contract itself is neutralised, so the text cannot close the wrapper early."""
     if isinstance(result, dict) and "error" in result:
-        return json.dumps(result, ensure_ascii=False)
+        return tool_error(result["error"] + ".", "use a passage id shown in search results (e.g. P12).")
     items = result if isinstance(result, list) else [result]
     body = "\n\n".join(_passage_block(p) for p in items) if items else "(no passages found)"
     body = re.sub(r"</?\s*(contract_data|harness_note)\s*>", "[tag removed]", body, flags=re.IGNORECASE)
@@ -95,12 +102,75 @@ def harness_note(text: str) -> str:
     return f"\n<harness_note>{text}</harness_note>"
 
 
+def tool_error(problem: str, fix: str) -> str:
+    """One format for every tool error: what went wrong + what to do next."""
+    return harness_note(f"Tool error: {problem} Next: {fix}").lstrip()
+
+
+def _part_chars(p) -> int:
+    if p.text:
+        return len(p.text)
+    if p.function_response:
+        return len(str(p.function_response.response))
+    if p.function_call:
+        return len(json.dumps(dict(p.function_call.args or {}), ensure_ascii=False))
+    return 0
+
+
+class ContextBudget:
+    """Context budget (EP07). Every call re-sends the whole conversation, and old search results were the bulk of
+    it (input tokens ~7.9x the single call). Before each call:
+      1. search results older than the last KEEP_TURNS tool turns become a stub that keeps the passage ids
+         (they were only used to choose what to read; stubbing them after one turn made the agent search
+         again to compare candidates: 43 calls vs 35-37 for V4 on FUSION, smoke test 21 Nov)
+      2. if the conversation is still over CONTEXT_BUDGET_CHARS, the oldest full reads become stubs too;
+         the guard forgets them, so the model may read them again if it needs to quote one."""
+
+    KEEP_TURNS = 2
+
+    def __init__(self, guard: "ProgressGuard", budget: int):
+        self.guard, self.budget, self.items = guard, budget, []
+
+    def add(self, ci: int, pi: int, tool: str, arg: str, ids: list[str], fp: str):
+        self.items.append({"ci": ci, "pi": pi, "tool": tool, "arg": arg, "ids": ids, "fp": fp, "stub": False})
+
+    @staticmethod
+    def size(contents) -> int:
+        return sum(_part_chars(p) for c in contents for p in (c.parts or []))
+
+    def _stub(self, contents, it):
+        if it["tool"] == "search_contract":
+            text = (f"[earlier search '{it['arg']}' returned {it['ids'] or 'nothing'}; text removed to save space. "
+                    f"read_passage shows any of them in full]")
+        else:
+            text = f"[earlier read of {it['arg']} removed to save space; read it again if you need to quote it]"
+            self.guard.done.pop(it["fp"], None)
+        contents[it["ci"]].parts[it["pi"]] = types.Part.from_function_response(name=it["tool"], response={"result": text})
+        it["stub"] = True
+
+    def apply(self, contents) -> tuple[int, int]:
+        before = self.size(contents)
+        if not self.items:
+            return before, before
+        turns = sorted({it["ci"] for it in self.items})
+        keep_from = turns[-self.KEEP_TURNS] if len(turns) >= self.KEEP_TURNS else turns[0]
+        for it in self.items:
+            if not it["stub"] and it["tool"] == "search_contract" and it["ci"] < keep_from:
+                self._stub(contents, it)
+        for it in self.items:
+            if self.size(contents) <= self.budget:
+                break
+            if not it["stub"] and it["tool"] == "read_passage" and it["ci"] < turns[-1]:
+                self._stub(contents, it)
+        return before, self.size(contents)
+
+
 class ProgressGuard:
     """Loop detection (EP08, EP09 LoopDetector), widened to 'no progress' because exact repeats are rare here
     (1 of 163 calls on 20 Nov) while 37% of searches returned no passage the rule had not already seen.
     - exact repeat of a search/read: not run again; the model is told where the earlier result is
     - search with no new passage: a harness note says so
-    - two in a row: the note names the passages the verifier needs before a MISSING answer"""
+    - V5: that same note names the passages the verifier needs before a MISSING answer (V3 waited for two in a row)"""
 
     def __init__(self, rule: dict, doc: ContractDocument):
         self.rule, self.doc = rule, doc
@@ -144,8 +214,7 @@ class ProgressGuard:
                 self.streak += 1
                 event = "no_new"
                 result += harness_note("No new passages: everything this search returned was already shown to you. "
-                                       + (self.advice() if self.streak >= 2 else
-                                          "Try a section number or different legal wording, or read a promising passage in full."))
+                                       + self.advice())
         return result, {"step": step, "tool": tool, "arg": arg, "event": event, "new": len(new)}
 
 
@@ -178,9 +247,13 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
     contents = [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
     tool_log, rejections, last = [], 0, None
     guard, path = ProgressGuard(rule, doc), []
+    budget = ContextBudget(guard, config.CONTEXT_BUDGET_CHARS)
 
     for step in range(1, config.MAX_STEPS + 1):
         final_step = step == config.MAX_STEPS
+        before, after = budget.apply(contents)
+        if after < before:
+            trace.event("context", rule=rule["id"], step=step, chars_before=before, chars_after=after)
         cfg = types.GenerateContentConfig(
             system_instruction=SYSTEM.format(language=LANGUAGES[lang]),
             temperature=0,
@@ -190,8 +263,8 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
                 mode="ANY", allowed_function_names=["submit_finding"] if final_step else None)),
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
-        resp = trace.call(lambda: config.client().models.generate_content(
-            model=config.MODEL, contents=contents, config=cfg), label=f"{rule['id']} step {step}")
+        resp = trace.call_model(lambda m: config.client().models.generate_content(
+            model=m, contents=contents, config=cfg), label=f"{rule['id']} step {step}")
         cand = resp.candidates[0]
         if "MAX_TOKENS" in str(getattr(cand, "finish_reason", "")):
             trace.event("output_cut", rule=rule["id"], step=step)  # runaway answer stopped at the cap
@@ -207,7 +280,7 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
             contents.append(types.Content(role="user", parts=[types.Part.from_text(text="Call a tool.")]))
             continue
 
-        replies = []
+        replies, tracked = [], []
         for fc in calls:
             args = dict(fc.args or {})
             tool_log.append(f"{fc.name}({args.get('query') or args.get('passage_id') or ''})")
@@ -217,6 +290,9 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
                 arg = args.get("query", "") if fc.name == "search_contract" else args.get("passage_id", "")
                 result, entry = guard.run(fc.name, arg, step)
                 path.append(entry)
+                if entry["event"] == "ok" or entry["event"] == "no_new":
+                    ids = re.findall(r"^\[(P\d+)\]", result, flags=re.MULTILINE)
+                    tracked.append((len(replies), fc.name, arg, ids, guard.fingerprint(fc.name, arg)))
                 if entry["event"] != "ok":
                     trace.event("progress", rule=rule["id"], step=step, tool=fc.name, arg=arg, outcome=entry["event"])
             elif fc.name == "submit_finding":
@@ -224,7 +300,9 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
                 try:
                     finding = ClauseFinding.model_validate(args)
                 except ValidationError as e:
-                    result = {"rejected": f"Invalid fields: {e.errors()[:3]}"}
+                    bad = ", ".join(".".join(str(x) for x in err["loc"]) for err in e.errors()[:3])
+                    result = tool_error(f"submit_finding has invalid fields ({bad}).",
+                                        "fix those fields and call submit_finding again.")
                     path.append({"step": step, "tool": fc.name, "arg": "", "event": "invalid", "new": 0})
                 else:
                     ok, feedback, page, score = verify(finding, rule, doc, guard.read)
@@ -240,8 +318,11 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
                     rejections += 1
                     result = {"rejected": feedback}
             else:
-                result = {"error": f"Unknown tool {fc.name}"}
+                result = tool_error(f"there is no tool called {fc.name}.",
+                                    "use search_contract, read_passage or submit_finding.")
             replies.append(types.Part.from_function_response(name=fc.name, response={"result": result}))
+        for pi, name, arg, ids, fp in tracked:
+            budget.add(len(contents), pi, name, arg, ids, fp)
         contents.append(types.Content(role="user", parts=replies))
 
     if last:  # budget used up after a rejected submission: keep it, flagged as unverified
@@ -254,23 +335,48 @@ def summarize(doc: ContractDocument, findings: list[ReviewedFinding], trace: Tra
              f"{r.finding.risk_level}. {r.finding.issue_description}" for r in findings]
     prompt = (f"Write a 3-sentence executive summary in {LANGUAGES[lang]} for a procurement manager: should they sign, "
               "and what must be fixed first?\n\n" + "\n".join(lines))
-    resp = trace.call(lambda: config.client().models.generate_content(
-        model=config.MODEL, contents=prompt, config=types.GenerateContentConfig(temperature=0)), label="summary")
+    resp = trace.call_model(lambda m: config.client().models.generate_content(
+        model=m, contents=prompt, config=types.GenerateContentConfig(temperature=0)), label="summary")
     return (resp.text or "").strip()
 
 
+def checkpoint_dir(doc: ContractDocument, lang: str, context: str = "") -> Path:
+    """One folder per (contract text, language, context, model): a re-run of the same review resumes from it."""
+    key = hashlib.sha1("\n".join([doc.title, lang, context, config.MODEL]
+                                 + [p.text for p in doc.pages]).encode("utf-8")).hexdigest()[:16]
+    return config.CHECKPOINT_DIR / key
+
+
+def _rule_file(folder: Path, rule: dict) -> Path:
+    h = hashlib.sha1(json.dumps(rule, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()[:10]
+    return folder / f"{rule['id']}_{h}.json"  # a changed rule text gets a new file, so it is checked again
+
+
 def check_rules(doc: ContractDocument, rules: list[dict], trace: Trace, lang: str = "th", on_step=None,
-                on_tool=None, on_done=None, context: str = "") -> list[ReviewedFinding]:
+                on_tool=None, on_done=None, context: str = "", checkpoint: Path | None = None) -> list[ReviewedFinding]:
     """Sectioning: the rules do not depend on each other, so each one is checked by its own worker at the
     same time (config.PARALLEL_RULES at once). Time per contract ~ the slowest rule, not the sum.
-    Callbacks always run on the calling thread (Streamlit can only draw from there); findings keep rule order."""
+    Callbacks always run on the calling thread (Streamlit can only draw from there); findings keep rule order.
+    checkpoint (V5): each finished rule is saved there at once; a rule already saved is loaded, not re-checked,
+    so a run stopped by an outage resumes without paying again for the rules that were done."""
+    def one(rule, tool_cb):
+        fp = _rule_file(checkpoint, rule) if checkpoint else None
+        if fp and fp.exists():
+            trace.event("resumed", rule=rule["id"])
+            return ReviewedFinding.model_validate_json(fp.read_text(encoding="utf-8"))
+        r = check_rule(rule, doc, trace, lang, tool_cb, context)
+        if fp:
+            fp.parent.mkdir(parents=True, exist_ok=True)
+            fp.write_text(r.model_dump_json(), encoding="utf-8")
+        return r
+
     workers = max(1, min(config.PARALLEL_RULES, len(rules)))
     if workers == 1:
         out = []
         for rule in rules:
             if on_step:
                 on_step(rule)
-            out.append(check_rule(rule, doc, trace, lang, on_tool, context))
+            out.append(one(rule, on_tool))
             if on_done:
                 on_done(rule, out[-1])
         return out
@@ -281,8 +387,7 @@ def check_rules(doc: ContractDocument, rules: list[dict], trace: Trace, lang: st
         for i, rule in enumerate(rules):
             if on_step:
                 on_step(rule)
-            futures[pool.submit(check_rule, rule, doc, trace, lang,
-                                (lambda r, c: events.put((r, c))) if on_tool else None, context)] = i
+            futures[pool.submit(one, rule, (lambda r, c: events.put((r, c))) if on_tool else None)] = i
         pending, results = set(futures), [None] * len(rules)
 
         def drain():
@@ -302,9 +407,15 @@ def check_rules(doc: ContractDocument, rules: list[dict], trace: Trace, lang: st
 
 
 def review(doc: ContractDocument, rules: list[dict], trace: Trace, on_step=None, lang: str = "th",
-           on_tool=None, on_done=None, context: str = "") -> ContractAuditReport:
+           on_tool=None, on_done=None, context: str = "", resume: bool = False) -> ContractAuditReport:
     """on_step(rule) before a rule, on_tool(rule, call) on every tool call, on_done(rule, finding) after.
-    context: optional line about contract type and parties (from criteria.profile_contract)."""
-    findings = check_rules(doc, rules, trace, lang, on_step, on_tool, on_done, context)
-    return ContractAuditReport(contract_title=doc.title, executive_summary=summarize(doc, findings, trace, lang),
-                               findings=findings)
+    context: optional line about contract type and parties (from criteria.profile_contract).
+    resume=True: save each rule as it finishes and pick up a stopped run (checkpoint_dir); the saved
+    results are deleted once the whole report is done, so a later review of the same contract starts fresh."""
+    folder = checkpoint_dir(doc, lang, context) if resume else None
+    findings = check_rules(doc, rules, trace, lang, on_step, on_tool, on_done, context, folder)
+    report = ContractAuditReport(contract_title=doc.title, executive_summary=summarize(doc, findings, trace, lang),
+                                 findings=findings)
+    if folder and folder.exists():
+        shutil.rmtree(folder, ignore_errors=True)
+    return report
