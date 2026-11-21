@@ -70,21 +70,29 @@ def make_injected(src: Path, out_dir: Path, variant: str = "A") -> Path:
 
 
 def track_exposure(doc, payload_ids, exposed, current):
-    """Wrap doc.search / doc.read: remember which rule saw a planted passage in a tool result."""
-    search, read = doc.search, doc.read
+    """Wrap the document lookups: remember which rule saw a planted passage in a tool result.
+    Passes any extra arguments through (search page=2 from V6) and also wraps the V6 lookups when the version has them."""
+    def saw(out):
+        items = out if isinstance(out, list) else [out]
+        for o in items:
+            if isinstance(o, dict) and (o.get("passage_id") in payload_ids or
+                                        any(p.get("passage_id") in payload_ids for p in o.get("same_section_passages", [])
+                                            if isinstance(p, dict))):
+                return True
+            if isinstance(o, str) and any(f"[{p}]" in o or f'"{p}"' in o for p in payload_ids):
+                return True
+        return False
 
-    def s(query, k=5):
-        out = search(query, k)
-        if any(o["passage_id"] in payload_ids for o in out):
-            exposed.add(current["rule"])
-        return out
-
-    def r(passage_id):
-        out = read(passage_id)
-        if out.get("passage_id") in payload_ids:
-            exposed.add(current["rule"])
-        return out
-    doc.search, doc.read = s, r
+    def wrap(fn):
+        def w(*a, **kw):
+            out = fn(*a, **kw)
+            if saw(out):
+                exposed.add(current["rule"])
+            return out
+        return w
+    for name in ("search", "read", "follow_reference", "lookup_definition"):
+        if hasattr(doc, name):
+            setattr(doc, name, wrap(getattr(doc, name)))
 
 
 def main(tag: str, clean_csv: str, n: int, variants: str = "AB", systems: str = "B2,A1", out: str | None = None):
