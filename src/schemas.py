@@ -33,10 +33,21 @@ class ReviewedFinding(BaseModel):
     unchecked: bool = False             # no check was possible (single call says "no clause" without reading passages)
 
 
+class CrossCheckNote(BaseModel):
+    """V6 cross-check reviewer: two or more findings that cannot both be right. Shown to people, never changes a verdict."""
+    finding_ids: list[str] = Field(description="policy_id of every finding involved, at least two")
+    problem: str = Field(description="What contradicts what, in the report language, one or two sentences")
+
+
+class CrossCheckNotes(BaseModel):
+    notes: list[CrossCheckNote]
+
+
 class ContractAuditReport(BaseModel):
     contract_title: str
     executive_summary: str             # in the report language
     findings: list[ReviewedFinding]
+    cross_checks: list[CrossCheckNote] = []  # V6+, empty for older versions
 
     @property
     def counts(self) -> dict:

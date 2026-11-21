@@ -59,7 +59,8 @@ class FakeModels:
         if rid == self.poison:
             raise FakeAPIError(400)  # not retryable: the run stops
         if rid == "summary":
-            return SimpleNamespace(text="สรุปทดสอบ", usage_metadata=usage)
+            text = '{"notes": []}' if "contradictions" in contents else "สรุปทดสอบ"  # V6 cross-check or summary
+            return SimpleNamespace(text=text, usage_metadata=usage)
         step = sum(1 for c in contents if c.role == "model")
         name, args = self.plan[rid][min(step, len(self.plan[rid]) - 1)]
         part = types.Part(function_call=types.FunctionCall(name=name, args=args))

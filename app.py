@@ -585,6 +585,9 @@ TEXT.update({
     "pb_calls": ("{n} AI calls · ส่งกลับ {r}", "{n} AI calls · sent back {r}"),
     "pb_summary": ("กำลังเขียนสรุปสำหรับผู้บริหาร ...", "Writing the executive summary ..."),
     "pb_single": ("Single call: ส่งสัญญาทั้งฉบับให้ AI ครั้งเดียว ...", "Single call: sending the whole contract in one AI call ..."),
+    "xc_title": ("ข้อสังเกตข้ามข้อ ({n}) · ผลบางข้อขัดกันเอง ควรให้คนตรวจ", "Cross-check notes ({n}) · some findings disagree, a person should check"),
+    "xc_note": ("AI ตรวจผลทุกข้อพร้อมกันหลังตรวจครบ โค้ดเก็บเฉพาะข้อสังเกตที่อ้างผลอย่างน้อย 2 ข้อที่มีอยู่จริง · ไม่เปลี่ยนผลตัดสิน",
+                "An AI reads all findings together after the review; code keeps only notes citing at least two real findings · verdicts are not changed"),
     "resume_hint": ("กดวิเคราะห์อีกครั้งได้เลย ระบบเก็บผลของกฎที่ตรวจเสร็จแล้วไว้ จะตรวจต่อเฉพาะกฎที่เหลือ",
                     "Press analyse again: finished rules were saved, so only the remaining rules are checked."),
     "skel_hint": ("ผลจะแสดงที่นี่หลังกด **วิเคราะห์สัญญา** · ระหว่างทำงานจะเห็นความคืบหน้าของ agent ทีละข้อ",
@@ -1630,6 +1633,11 @@ if view == "dash":
             if summ_tr:
                 with st.popover(t("orig")):
                     st.markdown(md_safe(report.executive_summary, keep_format=True))
+        if getattr(report, "cross_checks", None):  # V6 cross-check reviewer: shown, never changes a verdict
+            with st.expander(t("xc_title", n=len(report.cross_checks)), expanded=True):
+                st.caption(t("xc_note"))
+                for n in report.cross_checks:
+                    st.markdown(f"- **{' ↔ '.join(n.finding_ids)}** · {md_safe(n.problem)}")
         st.caption(t("run_meta", mode=t(res["mode"]), s=f"{res['seconds']:.0f}", calls=totals["llm_calls"],
                      tok=f"{totals['tokens_in'] + totals['tokens_out']:,}", cost=f"{totals['cost_usd']:.3f}",
                      model=config.MODEL))
