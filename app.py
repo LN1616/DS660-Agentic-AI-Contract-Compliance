@@ -473,8 +473,8 @@ def rule_title(r: dict) -> str:
 # ================= sidebar =================
 SIDEBAR_CSS = """<style>
 section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] { padding-top: 0.75rem; padding-bottom: 0.5rem; }
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.45rem; }
-section[data-testid="stSidebar"] .sbh { font-weight: 700; font-size: 0.98rem; margin: 0.35rem 0 -0.15rem; }
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.7rem; }
+section[data-testid="stSidebar"] .sbh { font-weight: 700; font-size: 1rem; margin: 0.9rem 0 0.15rem; padding-top: 0.6rem; border-top: 1px solid rgba(128,128,128,0.18); }
 section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] { padding: 0.5rem 0.75rem; }
 section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] small { display: none; }
 section[data-testid="stSidebar"] [data-testid="stExpander"] summary { padding-top: 0.3rem; padding-bottom: 0.3rem; }
@@ -485,7 +485,8 @@ TEXT.update({  # short sidebar labels; the long ones stay for history, reports a
                 "Automatic: AI finds the contract type and uses that type's policy · Manual: one fixed rule set for every contract"),
     "m_agent_s": ("Agent", "Agent"), "m_baseline_s": ("Single call", "Single call"),
     "vision_s": ("อ่านหน้า scan ด้วย vision", "Read scanned pages (vision)"),
-    "up_label": ("PDF ไทย / อังกฤษ · ไฟล์สแกนให้เปิด vision", "PDF in Thai or English · turn on vision for scans"),
+    "up_label": ("ไฟล์ PDF ไทยหรืออังกฤษ", "PDF in Thai or English"),
+    "gen_short": ("นโยบายกลาง (เลือกเพิ่ม)", "Company-wide rules (optional)"),
 })
 
 
@@ -513,7 +514,7 @@ with st.sidebar:
         gen_rules = current_library().get(GENERAL, [])
         # company-wide rules, library status and the library link in one collapsed expander; title shows the count picked
         n_gen = sum(bool(st.session_state.get(f"gen_{r['id']}")) for r in gen_rules)
-        with st.expander(f"{t('gen_pick')} · {n_gen}/{len(gen_rules)}" if gen_rules else t("go_policy_lib"), expanded=False):
+        with st.expander(f"{t('gen_short')} · {n_gen}/{len(gen_rules)}" if gen_rules else t("go_policy_lib"), expanded=False):
             st.caption(t("lib_status", n=n_types))
             if gen_rules:
                 st.caption(t("gen_pick_note"))
@@ -557,7 +558,7 @@ with st.sidebar:
                 help=f"Agent: {t('cap_agent')}  \nSingle call: {t('cap_single')}")
     st.caption(t("cap_agent" if mode == "m_agent" else "cap_single"))
     vision = st.toggle(t("vision_s"), value=True, help=t("vision"))
-    st.caption(f"Model: `{config.MODEL}` · Harness: `{config.release_name()}`")
+    st.caption(f"{config.MODEL} · harness {config.release_name()}")
     run = st.button(t("run"), type="primary", width="stretch",
                     disabled=n_rules == 0 or (source == "c_upload" and upload is None))
 
