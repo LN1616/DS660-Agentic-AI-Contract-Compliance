@@ -26,6 +26,7 @@ BUDGET = 10
 MIN_RUNS = 3  # a 'clear' verdict needs this many runs on both sides
 
 # name, column, how to show, higher is better?
+ADVICE = re.compile(r"ควร|ต้อง|แนะนำ|should|must|recommend", re.I)  # advice, not a factual claim
 METRICS = [
     ("Presence correct (of 24)", "presence", "{:.1f}", True),
     ("Quotes found in PDF", "quote_real", "{:.0%}", True),
@@ -38,6 +39,12 @@ METRICS = [
     ("Exact repeat tool calls", "repeats", "{:.1f}", False),
     ("Seconds per contract", "sec", "{:.0f}", False),
     ("Baht per contract", "thb", "{:.2f}", False),
+    ("Issue text faithful to the contract (claims supported)", "faith_issue", "{:.0%}", True),
+    ("Summary faithful to the findings (claims supported)", "faith_summary", "{:.0%}", True),
+    ("Issue text faithful, facts only (advice removed)", "faith_issue_fact", "{:.0%}", True),
+    ("Summary faithful, facts only (advice removed)", "faith_summary_fact", "{:.0%}", True),
+    ("Summaries contradicting the code verdict or naming unknown rules (of 6)", "summary_bad", "{:.1f}", False),
+    ("Tool errors per tool call", "tool_err", "{:.1%}", False),
 ]
 
 
@@ -79,6 +86,21 @@ def score_run(vid: str, run_dir: Path) -> dict:
             seen = [norm_call(c) for c in calls.split("|") if c and not c.startswith("submit_finding")]
             reps += len(seen) - len(set(seen))
         out["repeats"] = reps
+    fj = run_dir / "faithfulness.json"   # package B, from eval.faithfulness (judge on the saved reports)
+    if fj.exists():
+        fd = json.load(open(fj, encoding="utf-8"))
+        for kind in ("issue", "summary"):
+            cl = [c for it in fd["items"] if it["system"] == v["mode"] and it["kind"] == kind for c in it["claims"]]
+            if cl:
+                out[f"faith_{kind}"] = sum(c["supported"] for c in cl) / len(cl)
+            fact = [c for c in cl if not ADVICE.search(c["claim"])]   # the judge kept some advice as "claims"
+            if fact:
+                out[f"faith_{kind}_fact"] = sum(c["supported"] for c in fact) / len(fact)
+        out["summary_bad"] = sum(c["contradicts"] or bool(c["unknown_ids"])
+                                 for c in fd["summary_checks"] if c["system"] == v["mode"])
+        te = fd["tool_errors"].get(v["mode"])
+        if v["mode"] == "A1" and te and te["calls"]:
+            out["tool_err"] = te["errors"] / te["calls"]
     return out
 
 
