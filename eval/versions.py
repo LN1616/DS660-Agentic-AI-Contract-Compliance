@@ -11,6 +11,7 @@ COMMITS = {
     "34ec525": {"A1": "V4"},
     "c67330f": {"A1": "V5"},
     "e0a1dcc": {"A1": "V6"},  # long-contract tools 46f2480 + cross-check
+    "e100ccf": {"A1": "V7"},  # clearer MISSING scope in the prompt, budget 10
 }
 
 VERSIONS = {
@@ -149,7 +150,6 @@ VERSIONS = {
         "steps": ['As V4 (sectioning, progress guard, verifier, <contract_data> wrapper).', 'Before every call: search results older than the last 2 tool turns become a stub that keeps the passage ids; if the conversation is still over 16,000 characters, the oldest full reads become stubs too (they can be read again).', 'The first search that returns nothing new already names the passages the verifier needs (V3-V4 waited for two in a row).', 'A failing call is retried twice with jittered backoff, then the same request goes to FALLBACK_MODEL; every call records which model answered.', 'App: each finished rule is saved at once; running the review again after a failure checks only the remaining rules. Saved files are deleted when the report is done.', 'Tool errors share one format (problem + what to do next); tool descriptions say how to use them.'],
     },
     "V6": {
-        "eval_set": "long",  # measured on the long-contract round (test 22), not the 3-run short-set protocol
         "weakness_th": "สัญญายาว (ตรวจแบบไม่ใช้ API กับ CUAD 6 ฉบับที่ยาวที่สุด 75–154 หน้า, 19 คู่กฎ × สัญญาที่มีเฉลย): การค้นครั้งแรกด้วยชื่อกฎเจอคำตอบใน 5 อันดับแรกแค่ 11/19 และทุกการจัดอันดับรวมกันยังพลาด 3/19 (2 ข้ออยู่อันดับ 7 และ 10) · ข้อความคำตอบ 9/19 อ้างถึงส่วนอื่น เช่น 'Article 9.3' หรือ 'Exhibit H' และ 6/19 อยู่ในภาคผนวก · สัญญายาวมีศัพท์นิยาม 14–273 คำต่อฉบับ · tool เดิมค้นได้แค่ข้อความใกล้คำค้น ตามไปส่วนที่ถูกอ้างหรือหานิยามโดยตรงไม่ได้",
         "prev": 'V5',
         "flow": [('PDF → ส่วนย่อย + ดัชนีค้นหา + ดัชนีเลขข้อ / ภาคผนวก / ศัพท์นิยาม', 'chg'), ('ระบุประเภท → นโยบายจากคลัง (โค้ด)', ''), ('ตรวจทุกกฎพร้อมกัน + งบ context', ''), ('AI เลือก tool: search (หน้า 2 ได้) / read / follow_reference / lookup_definition', 'chg'), ('ตัวจับการค้นไม่คืบหน้า · ห่อ <contract_data>', ''), ('submit_finding → ตัวตรวจซ้ำ (โค้ด) · นับส่วนที่เปิดอ่านด้วย tool ใหม่ด้วย', 'chg'), ('Cross-check reviewer (AI 1 call): หาผลที่ขัดกันข้ามข้อ · โค้ดเก็บเฉพาะข้อที่อ้าง finding จริง ≥ 2 ข้อ · ไม่เปลี่ยนผลตัดสิน', 'new'), ('สรุปผู้บริหาร', '')],
@@ -163,6 +163,21 @@ VERSIONS = {
         "concept": 'Tool design / ACI (EP04, EP06) · long-context retrieval (EP07) · reflection on all findings (EP05)',
         "steps_th": ['เหมือน V5 ทั้งหมด (sectioning, งบ context, model สำรอง, บันทึกผลทีละกฎ)', 'ตอนอ่านสัญญา โค้ดสร้างดัชนีเพิ่ม: เลขข้อ → passage · หัวเรื่องภาคผนวก (EXHIBIT / SCHEDULE / APPENDIX) → passage · ศัพท์นิยาม ("X" means ...) → passage', "follow_reference('Article 9.3' / 'Exhibit B') เปิดส่วนนั้นเต็ม · 'Exhibit H-8' (เลขหน้าในภาคผนวก) ย้อนไปที่ Exhibit H", "lookup_definition('Net Sales') เปิด passage ที่นิยามศัพท์ · ตรงตัวก่อน แล้วจึงใกล้เคียง ≥ 85", 'search_contract(page=2) คืนผลอันดับ 6–10', "ส่วนที่เปิดด้วย tool ใหม่นับเป็น 'อ่านแล้ว' ในตัวตรวจซ้ำ และอยู่ใต้งบ context เหมือน read_passage", 'หลังตรวจครบทุกกฎ: AI 1 call อ่านผลทุกข้อพร้อมกัน หาคู่ที่ขัดกัน · โค้ดเก็บเฉพาะข้อสังเกตที่อ้างผลจริงอย่างน้อย 2 ข้อ · แสดงให้คนดู ไม่เปลี่ยนผลตัดสิน'],
         "steps": ['As V5 (sectioning, context budget, fallback model, per-rule checkpoint).', 'At load, plain code indexes section numbers, attachment headings (EXHIBIT / SCHEDULE / APPENDIX / ANNEX) and defined terms ("X" means ...).', "follow_reference('Article 9.3' / 'Exhibit B') opens that part in full; 'Exhibit H-8' (a page label) falls back to Exhibit H.", "lookup_definition('Net Sales') opens the passage that defines the term (exact, then closest match >= 85).", 'search_contract(page=2) returns results ranked 6-10.', 'Passages opened by the new tools count as read for the verifier and fall under the context budget like read_passage.', 'After all rules: one cross-check call lists contradictions between findings; code keeps a note only if it cites at least two existing findings. Notes are shown to people and never change a verdict.'],
+    },
+    "V7": {
+        "weakness_th": "สัญญายาว (V6, 1 รอบ): ข้อที่ตอบผิดเทียบเฉลย CUAD ส่วนใหญ่ไม่ได้มาจากงบ call หมด (ทดลองเพิ่มงบเป็น 16 แล้ว งบหมดลด 10/16 → 4/16 แต่มี/ไม่มีถูก 9 → 8/16) · ไล่ทีละข้อพบว่า agent ตีความว่า 'ไม่มีข้อนี้' แคบเกินไป: CERES และ Phasebio มีข้อยกเว้นความเสียหายทางอ้อม แต่ agent หาแค่เพดานเงินแล้วตอบ MISSING · Manufacturers มีประกันเฉพาะฝั่งผู้ซื้อ กฎเขียนว่าเป็น VIOLATED แต่ agent ตอบ MISSING",
+        "prev": 'V6',
+        "flow": [('PDF → ส่วนย่อย + ดัชนีค้นหา + ดัชนีเลขข้อ / ภาคผนวก / ศัพท์นิยาม', ''), ('ระบุประเภท → นโยบายจากคลัง (โค้ด)', ''), ('ตรวจทุกกฎพร้อมกัน + งบ context · งบ 10 call ทุกสัญญา', ''), ('AI เลือก tool (search / read / follow_reference / lookup_definition) · prompt บอกขอบเขตของ MISSING ชัดขึ้น', 'chg'), ('ตัวจับการค้นไม่คืบหน้า · ห่อ <contract_data>', ''), ('submit_finding → ตัวตรวจซ้ำ (โค้ด)', ''), ('Cross-check reviewer (AI 1 call)', ''), ('สรุปผู้บริหาร', '')],
+        "why_th": 'ผลที่ผิดเกิดจากการตีความ ไม่ใช่การค้นไม่ทัน จึงแก้ที่คำสั่งให้ AI แทนการเพิ่ม call · เขียนเป็นหลักทั่วไป ใช้ได้กับทุกกฎ ไม่ได้ใส่คำตอบของสัญญาใด · ไม่แก้ข้อความกฎใน playbook เพื่อให้ทุกเวอร์ชันยังวัดด้วยกฎชุดเดียวกันและเทียบกันได้',
+        "target": ['presence'],
+        "extra_th": '<li><b>ปิดงบ call ตามความยาว (ค่าเริ่มต้นกลับเป็น 10):</b> ทดลองแล้วไม่ช่วยความถูกต้อง ต้นทุน +36% และข้อที่ผิดผ่านตัวตรวจซ้ำแทนที่จะถูกติดธงให้คนตรวจ · ยังเปิดได้ด้วย MAX_STEPS_LONG</li><li><b>ข้อจำกัด:</b> เป็นการแก้ prompt ของ agent อย่างเดียว single call ไม่ได้รับคำอธิบายนี้ ผลต่างระหว่าง V7 กับ single call จึงรวมผลของ prompt ด้วย</li>',
+        "mode": 'A1',
+        "commit": 'e100ccf',
+        "name_th": 'V6 + ขอบเขตของ MISSING ชัดขึ้น · งบ call 10 ทุกสัญญา',
+        "change_th": 'prompt ของ agent: MISSING ใช้เมื่อไม่มีข้อเรื่องนั้นเลยเท่านั้น ข้อที่แคบกว่ากฎ เขียนต่างไป หรือให้อีกฝ่ายรับภาระ ต้องตัดสินเป็น COMPLIANT / DEVIATED / VIOLATED · อ่านกฎให้จบ ถ้ากฎกำหนดสถานะของกรณีใดไว้ ใช้สถานะนั้น',
+        "concept": 'Prompt engineering / clear task definition (EP02) · error analysis ก่อนแก้ (EP08)',
+        "steps_th": ['เหมือน V6 ทั้งหมด (tool ตามอ้างอิง หาศัพท์นิยาม ค้นหน้า 2 cross-check)', 'prompt เพิ่ม 2 บรรทัด: MISSING = ไม่มีข้อเรื่องนี้เลย · ข้อที่แคบกว่า / ให้อีกฝ่ายรับภาระ ต้องตัดสินเป็นสถานะอื่น', 'อ่านกฎให้จบ: ถ้ากฎระบุสถานะของกรณีใดไว้ ใช้สถานะนั้น', 'งบ call 10 ทุกสัญญา (ปิดงบตามความยาว)'],
+        "steps": ['As V6 (follow_reference, lookup_definition, search page 2, cross-check).', 'Prompt: MISSING only when the contract has no clause on the topic; a narrower clause, other wording, or an obligation on the other party is judged COMPLIANT / DEVIATED / VIOLATED.', 'Read the rule to the end: when it names the status for a situation, use it.', 'Call budget 10 for every contract (length-scaled budget off).'],
     },
 }
 
