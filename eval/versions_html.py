@@ -193,6 +193,106 @@ def setup_block():
 """
 
 
+def _short(c):
+    return c.split("_")[0].split("-EX-")[0].replace("INC", " INC").replace("CORP", " CORP").replace("LTD", " LTD").strip()
+
+
+def _marks(preds_ok):
+    """One mark per run: ✓ right vs CUAD, ✗ wrong."""
+    return "".join("<span style='color:var(--ok,#16a34a)'>✓</span>" if ok else "<span style='color:var(--bad,#dc2626)'>✗</span>"
+                   for ok in preds_ok)
+
+
+def answer_matrix_block():
+    """Every graded cell (contract × rule) against the CUAD answer, per version and per run. Saved rows only, no API."""
+    import glob
+    rules = {r["id"]: r for r in config.load_playbook()}
+    graded = [k for k, r in rules.items() if r["if_absent"] == "MISSING"]
+    data, vids = {}, []
+    for vid, v in VERSIONS.items():
+        runs = sorted(glob.glob(str(OUT / "versions" / v["commit"] / "run*" / "eval_rows.csv")))
+        if not runs:
+            continue
+        vids.append(vid)
+        for i, fp in enumerate(runs):
+            d = pd.read_csv(fp)
+            d = d[d.system.str.startswith(v["mode"])]
+            for _, x in d.iterrows():
+                data.setdefault((x.contract, x.rule), {"exp": x.expected}).setdefault(vid, []).append(
+                    (bool(x.presence_correct) if pd.notna(x.presence_correct) else None, x.predicted))
+    if not data:
+        return ""
+    th = "".join(f"<th>{vid}</th>" for vid in vids)
+    body, tot = [], {vid: [0, 0] for vid in vids}
+    hard = []
+    for (c, rid), cellv in sorted(data.items()):
+        if rid not in graded:
+            continue
+        exp = "มี" if cellv["exp"] == "PRESENT" else "ไม่มี"
+        tds, wrong_all = [], 0
+        for vid in vids:
+            runs = cellv.get(vid, [])
+            ok = [bool(o) for o, _ in runs]
+            tot[vid][0] += sum(ok)
+            tot[vid][1] += len(ok)
+            wrong_all += len(ok) - sum(ok)
+            tip = " · ".join(p for _, p in runs)
+            tds.append(f"<td title='{escape(tip)}' style='text-align:center;letter-spacing:1px'>{_marks(ok)}</td>")
+        total_runs = sum(len(cellv.get(v, [])) for v in vids)
+        if wrong_all == total_runs:
+            hard.append(f"{_short(c)} {rid}")
+        body.append(f"<tr><td>{escape(_short(c))}</td><td>{rid} {escape(rules[rid]['title'])}</td><td><b>{exp}</b></td>{''.join(tds)}</tr>")
+    foot = "".join(f"<td style='text-align:center'><b>{a}/{n}</b><br><span class='small'>≈ {a / max(n, 1) * 24:.1f} จาก 24</span></td>"
+                   for a, n in tot.values())
+    return f"""<div class="fig" id="fig-answers">
+    <div class="fig-title"><h3>ผลรายข้อเทียบเฉลย CUAD ทุกเวอร์ชัน</h3><span class="small">24 ข้อที่ให้คะแนนได้ × 3 รอบต่อเวอร์ชัน · จากผลที่เก็บไว้ ไม่เรียก API · ชี้เมาส์ที่ช่องเพื่อดูคำตอบแต่ละรอบ</span></div>
+    <div class="tbox"><table class="t" style="min-width:720px"><thead><tr><th>สัญญา</th><th>กฎ</th><th>เฉลย CUAD<br><span class='small'>มีข้อนี้ไหม</span></th>{th}</tr></thead>
+    <tbody>{''.join(body)}<tr><td colspan="3"><b>รวมถูก</b> (ทุกรอบ)</td>{foot}</tr></tbody></table></div>
+    <p class="small"><b>อ่านตาราง:</b> 1 เครื่องหมายต่อ 1 รอบ · ✓ = ตอบเรื่อง "มี/ไม่มีข้อนี้" ตรงเฉลย · ✗ = ไม่ตรง ·
+    ตรงเฉลยคือ ตอบ MISSING เมื่อ CUAD ไม่มีข้อนี้ และตอบสถานะอื่นเมื่อ CUAD มี · กฎ P-03 ต่ออายุอัตโนมัติไม่นับ เพราะกรณีไม่มีข้อนี้ใช้สถานะอื่นแทน MISSING ·
+    <b>ผิดทุกเวอร์ชันทุกรอบ:</b> {escape(' · '.join(hard)) or 'ไม่มี'}</p>
+  </div>
+"""
+
+
+def long_matrix_block():
+    """Long-contract round (test 22): single call, V6 (10 calls), V6 with the length-scaled budget, per rule vs CUAD."""
+    runs = [("single call", OUT / "long_round" / "run1", "B2"), ("V6 · งบ 10 call", OUT / "long_round" / "run1", "A1"),
+            ("V6 · งบตามความยาว (16)", OUT / "long_round" / "run2_budget", "A1")]
+    runs = [r for r in runs if (r[1] / "eval_rows.csv").exists()]
+    if not runs:
+        return ""
+    rules = {r["id"]: r for r in config.load_playbook()}
+    cells = {}
+    for name, d, mode in runs:
+        x = pd.read_csv(d / "eval_rows.csv")
+        x = x[x.system.str.startswith(mode) & x.presence_correct.notna()]
+        for _, r in x.iterrows():
+            cells.setdefault((r.contract, r.rule), {"exp": r.expected})[name] = (bool(r.presence_correct), r.predicted, r.steps)
+    th = "".join(f"<th>{escape(n)}</th>" for n, _, _ in runs)
+    body, tot = [], {n: 0 for n, _, _ in runs}
+    for (c, rid), v in sorted(cells.items()):
+        tds = []
+        for n, _, mode in runs:
+            if n not in v:
+                tds.append("<td>–</td>")
+                continue
+            ok, pred, steps = v[n]
+            tot[n] += ok
+            st = f" · {int(steps)} call" if mode == "A1" and pd.notna(steps) else ""
+            tds.append(f"<td style='text-align:center'>{_marks([ok])} <span class='small'>{escape(pred)}{st}</span></td>")
+        exp = "มี" if v["exp"] == "PRESENT" else "ไม่มี"
+        body.append(f"<tr><td>{escape(_short(c))}</td><td>{rid} {escape(rules[rid]['title'])}</td><td><b>{exp}</b></td>{''.join(tds)}</tr>")
+    n = len(cells)
+    foot = "".join(f"<td style='text-align:center'><b>{t}/{n}</b></td>" for t in tot.values())
+    return f"""<div class="fig" id="fig-answers-long">
+    <div class="fig-title"><h3>สัญญายาว (ข้อ 22): ผลรายข้อเทียบเฉลย CUAD</h3><span class="small">4 ฉบับ 75–154 หน้า · 1 รอบ · จากผลที่เก็บไว้</span></div>
+    <div class="tbox"><table class="t" style="min-width:720px"><thead><tr><th>สัญญา</th><th>กฎ</th><th>เฉลย CUAD</th>{th}</tr></thead>
+    <tbody>{''.join(body)}<tr><td colspan="3"><b>รวมถูก</b></td>{foot}</tr></tbody></table></div>
+  </div>
+"""
+
+
 def faith_block(sm):
     """Package B results (eval/faithfulness.py on the saved reports of every run)."""
     need = ["faith_issue", "faith_issue_fact", "faith_summary", "faith_summary_fact", "summary_bad"]
@@ -252,7 +352,7 @@ def build():
              + ["–"] * (len(COLS) + 3) for a, (b, c) in ((k, (v["name_th"], v["concept"])) for k, v in PLANNED.items())]
     th = "".join(f"<th>{escape(h)}</th>" for h in head)
     tb = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
-    return protocol_block() + setup_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
+    return protocol_block() + setup_block() + answer_matrix_block() + long_matrix_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
     <div class="fig-title"><h3>วิวัฒนาการของระบบ: แต่ละเวอร์ชันเปลี่ยน harness อะไร และผลเปลี่ยนอย่างไร</h3><span class="small">ค่าเฉลี่ยของรอบที่รัน · ตัวเลขเล็กคือช่วงต่ำสุด–สูงสุด (แสดงเมื่อรอบต่างกัน)</span></div>
     <p class="note"><b>สถานะ:</b> {status}</p>
     <p class="small">Baseline: SC1 → SC2 · Agent: {' → '.join(k for k in VERSIONS if k.startswith('V'))}{(" → <span class='small'>" + ' → '.join(PLANNED) + " (แผน)</span>") if PLANNED else ""}</p>
