@@ -255,7 +255,7 @@ def build():
     return protocol_block() + setup_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
     <div class="fig-title"><h3>วิวัฒนาการของระบบ: แต่ละเวอร์ชันเปลี่ยน harness อะไร และผลเปลี่ยนอย่างไร</h3><span class="small">ค่าเฉลี่ยของรอบที่รัน · ตัวเลขเล็กคือช่วงต่ำสุด–สูงสุด (แสดงเมื่อรอบต่างกัน)</span></div>
     <p class="note"><b>สถานะ:</b> {status}</p>
-    <p class="small">Baseline: SC1 → SC2 · Agent: {' → '.join(k for k in VERSIONS if k.startswith('V'))} → <span class='small'>{' → '.join(PLANNED)} (แผน)</span></p>
+    <p class="small">Baseline: SC1 → SC2 · Agent: {' → '.join(k for k in VERSIONS if k.startswith('V'))}{(" → <span class='small'>" + ' → '.join(PLANNED) + " (แผน)</span>") if PLANNED else ""}</p>
     <div class="tbox"><table class="t"><thead><tr>{th}</tr></thead><tbody>{tb}</tbody></table></div>
     <p class="small">นิยามตัวชี้วัดทุกตัว: docs/EVALUATION.md หัวข้อ 3 · ต้นทุนคิดจาก token × ราคาต่อ token แสดงเป็นบาทที่ {THB_PER_USD:.0f} บาท/US$ (US$ ในวงเล็บ) ·
     เวลารวมช่วงพัก 1 วินาทีระหว่าง call · "ผลตัดสินเปลี่ยนระหว่างรอบ" = คู่สัญญา × กฎ ที่ได้คำตอบไม่เหมือนกันทุกรอบ ทั้งที่โค้ดเดิม</p>

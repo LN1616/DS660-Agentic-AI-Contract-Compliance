@@ -10,6 +10,7 @@ COMMITS = {
     "cc21e1d": {"A1": "V3"},          # single-call code is the same as de66498 (SC2), not run again
     "34ec525": {"A1": "V4"},
     "c67330f": {"A1": "V5"},
+    "46f2480": {"A1": "V6"},
 }
 
 VERSIONS = {
@@ -147,22 +148,23 @@ VERSIONS = {
         "steps_th": ['เหมือน V4 ภายในแต่ละกฎ และตรวจกฎพร้อมกัน', 'ก่อนทุก call: ผลค้นที่เก่ากว่า 2 รอบล่าสุดถูกแทนด้วยป้ายสั้นที่เก็บรหัส passage · ถ้ายังเกินงบ (16,000 ตัวอักษร) ข้อความที่อ่านเก่าสุดถูกแทนด้วยป้าย และอ่านซ้ำได้', 'การค้นครั้งแรกที่ไม่เจอส่วนใหม่: บอกทันทีว่าต้องอ่านส่วนไหนก่อนตอบว่าไม่มีข้อนี้ (V3–V4 รอให้ไม่เจอ 2 ครั้งติด)', 'call ล้ม: retry แบบสุ่มช่วงรอ 2 ครั้ง แล้วส่งคำขอเดียวกันไป model สำรอง · บันทึกว่า model ไหนตอบทุก call', 'แอป: บันทึกผลทุกกฎลงไฟล์ทันทีที่เสร็จ ถ้าหยุดกลางทาง กดวิเคราะห์ใหม่จะตรวจเฉพาะกฎที่เหลือ · ลบไฟล์เมื่อรายงานเสร็จ', 'error ของ tool ทุกแบบใช้รูปแบบเดียว: ปัญหาคืออะไร + ทำอะไรต่อ · คำอธิบาย tool บอกวิธีใช้ชัดขึ้น'],
         "steps": ['As V4 (sectioning, progress guard, verifier, <contract_data> wrapper).', 'Before every call: search results older than the last 2 tool turns become a stub that keeps the passage ids; if the conversation is still over 16,000 characters, the oldest full reads become stubs too (they can be read again).', 'The first search that returns nothing new already names the passages the verifier needs (V3-V4 waited for two in a row).', 'A failing call is retried twice with jittered backoff, then the same request goes to FALLBACK_MODEL; every call records which model answered.', 'App: each finished rule is saved at once; running the review again after a failure checks only the remaining rules. Saved files are deleted when the report is done.', 'Tool errors share one format (problem + what to do next); tool descriptions say how to use them.'],
     },
+    "V6": {
+        "weakness_th": "สัญญายาว (ตรวจแบบไม่ใช้ API กับ CUAD 6 ฉบับที่ยาวที่สุด 75–154 หน้า, 19 คู่กฎ × สัญญาที่มีเฉลย): การค้นครั้งแรกด้วยชื่อกฎเจอคำตอบใน 5 อันดับแรกแค่ 11/19 และทุกการจัดอันดับรวมกันยังพลาด 3/19 (2 ข้ออยู่อันดับ 7 และ 10) · ข้อความคำตอบ 9/19 อ้างถึงส่วนอื่น เช่น 'Article 9.3' หรือ 'Exhibit H' และ 6/19 อยู่ในภาคผนวก · สัญญายาวมีศัพท์นิยาม 14–273 คำต่อฉบับ · tool เดิมค้นได้แค่ข้อความใกล้คำค้น ตามไปส่วนที่ถูกอ้างหรือหานิยามโดยตรงไม่ได้",
+        "prev": 'V5',
+        "flow": [('PDF → ส่วนย่อย + ดัชนีค้นหา + ดัชนีเลขข้อ / ภาคผนวก / ศัพท์นิยาม', 'chg'), ('ระบุประเภท → นโยบายจากคลัง (โค้ด)', ''), ('ตรวจทุกกฎพร้อมกัน + งบ context', ''), ('AI เลือก tool: search (หน้า 2 ได้) / read / follow_reference / lookup_definition', 'chg'), ('ตัวจับการค้นไม่คืบหน้า · ห่อ <contract_data>', ''), ('submit_finding → ตัวตรวจซ้ำ (โค้ด) · นับส่วนที่เปิดอ่านด้วย tool ใหม่ด้วย', 'chg'), ('สรุปผู้บริหาร', '')],
+        "why_th": 'follow_reference เปิดส่วนที่ข้อความอ้างถึงได้ทันทีโดยไม่ต้องเดาคำค้น · lookup_definition ให้ความหมายของศัพท์ที่ตัดสินคำตอบ · ค้นหน้า 2 ครอบคลุมคำตอบที่อยู่อันดับ 6–10 · ตรวจแบบไม่ใช้ API ก่อนสร้าง: ค้นถึงอันดับ 10 เจอคำตอบ 18/19 (จาก 16/19) · follow_reference เปิดส่วนที่ถูกอ้างได้ 21/24 (ที่เหลือคือกฎหมายภายนอก Section 101 ของ Bankruptcy Code และภาคผนวกที่หาหัวเรื่องไม่เจอ) · lookup_definition หาศัพท์ที่ใช้ในข้อความคำตอบเจอ 38/38 · tool ใหม่ไม่เพิ่ม call ถ้า agent ไม่เรียกใช้ สัญญาสั้นจึงไม่ควรแพงขึ้น · เลื่อน cross-check reviewer ออก: เพิ่ม call ทุกฉบับและต้องมีการทดสอบแยก · ไม่ใช้ planner: กฎที่ต้องตรวจกำหนดล่วงหน้าจากคลังนโยบาย',
+        "target": ['presence', 'quote_gold'],
+        "extra_th": "<li><b>ทดสอบไม่ใช้ API (eval/test_v6_offline.py, สัญญา CERES 154 หน้า):</b> 'Article 9.3' เปิดข้อ 9.3 · ศัพท์นิยามเปิด passage ที่นิยาม · ค้นหน้า 2 ได้อันดับ 6–10 ไม่ซ้ำหน้า 1 · ลูป agent ด้วย model ปลอม: ค้น → ตามอ้างอิง → หานิยาม → ค้นหน้า 2 → อ่าน → ส่ง เจอคำตอบตามเฉลย CUAD ที่อยู่อันดับ 7 และตัวตรวจซ้ำยอมรับ quote · การทดสอบของ V5 (sectioning, จำลองล้ม) ยังผ่านครบ</li><li><b>ข้อจำกัดที่พบ:</b> สัญญาที่รวมหลายฉบับมีเลขข้อซ้ำ (CERES มีข้อ 9.3 สองที่) follow_reference เปิดที่แรก และบอกรหัส passage อื่นของเลขข้อเดียวกันไว้ให้เปิดต่อ</li><li><b>แผนวัดผล (ประหยัด):</b> รอบเดียว single call + V6 บนสัญญายาว 4 ฉบับ ราว 10 บาท · ไม่รัน V5 บนสัญญายาว · วัดส่วนที่ tool ใหม่ช่วยจากบันทึกการใช้ tool (finding ที่ถูกตามเฉลยซึ่งได้จาก tool ใหม่)</li>",
+        "mode": 'A1',
+        "commit": '46f2480',
+        "name_th": 'V5 + ตามไปส่วนที่ถูกอ้าง · หาศัพท์นิยาม · ค้นหน้า 2 (สัญญายาว)',
+        "change_th": 'tool ใหม่ follow_reference และ lookup_definition · search_contract ขอผลอันดับ 6–10 ได้ · ดัชนีเลขข้อ ภาคผนวก และศัพท์นิยาม (โค้ด)',
+        "concept": 'Tool design / ACI (EP04, EP06) · long-context retrieval (EP07)',
+        "steps_th": ['เหมือน V5 ทั้งหมด (sectioning, งบ context, model สำรอง, บันทึกผลทีละกฎ)', 'ตอนอ่านสัญญา โค้ดสร้างดัชนีเพิ่ม: เลขข้อ → passage · หัวเรื่องภาคผนวก (EXHIBIT / SCHEDULE / APPENDIX) → passage · ศัพท์นิยาม ("X" means ...) → passage', "follow_reference('Article 9.3' / 'Exhibit B') เปิดส่วนนั้นเต็ม · 'Exhibit H-8' (เลขหน้าในภาคผนวก) ย้อนไปที่ Exhibit H", "lookup_definition('Net Sales') เปิด passage ที่นิยามศัพท์ · ตรงตัวก่อน แล้วจึงใกล้เคียง ≥ 85", 'search_contract(page=2) คืนผลอันดับ 6–10', "ส่วนที่เปิดด้วย tool ใหม่นับเป็น 'อ่านแล้ว' ในตัวตรวจซ้ำ และอยู่ใต้งบ context เหมือน read_passage"],
+        "steps": ['As V5 (sectioning, context budget, fallback model, per-rule checkpoint).', 'At load, plain code indexes section numbers, attachment headings (EXHIBIT / SCHEDULE / APPENDIX / ANNEX) and defined terms ("X" means ...).', "follow_reference('Article 9.3' / 'Exhibit B') opens that part in full; 'Exhibit H-8' (a page label) falls back to Exhibit H.", "lookup_definition('Net Sales') opens the passage that defines the term (exact, then closest match >= 85).", 'search_contract(page=2) returns results ranked 6-10.', 'Passages opened by the new tools count as read for the verifier and fall under the context budget like read_passage.'],
+    },
 }
 
 # Planned versions: same card layout, no commit and no results yet. "target" = metrics that decide if it is kept.
 PLANNED = {
-    "V6": {
-        "weakness_th": 'tool ค้นได้แค่ข้อความใกล้คำค้น ตามไปอ่าน Exhibit หรือข้อที่ถูกอ้างถึงไม่ได้ ซึ่งจะเป็นปัญหาในสัญญายาว · ผลแต่ละกฎตัดสินแยกกัน ไม่มีขั้นที่ตรวจว่าผลข้อหนึ่งขัดกับอีกข้อ',
-        "name_th": "V5 + tool ตามอ้างอิง · ตรวจข้อขัดกันข้ามข้อ (ส่วนขยายสำหรับสัญญายาว)",
-        "concept": "Tool design / ACI (EP04) · reflection (EP05)",
-        "flow": [("PDF → ส่วนย่อย + ดัชนีค้นหา", ""),
-                 ("ระบุประเภท → นโยบายจากคลัง (โค้ด)", ""),
-                 ("ตรวจทุกกฎพร้อมกัน", ""),
-                 ("AI เลือก tool: search / read / follow_reference / lookup_definition", "chg"),
-                 ("submit_finding → ตัวตรวจซ้ำ (โค้ด)", ""),
-                 ("Cross-check reviewer (AI): หาผลที่ขัดกันข้ามข้อ · ต้องอ้าง finding จริง", "new"),
-                 ("สรุปผู้บริหาร", "")],
-        "why_th": "ตามไปอ่าน Exhibit หรือข้อที่ถูกอ้างถึงได้ ซึ่งเป็นจุดอ่อนของสัญญายาว · จับคำตอบที่ขัดกันเองข้ามข้อ · สร้างเมื่อมีหลักฐานเท่านั้น: รัน V5 บนสัญญายาวก่อน (ข้อ 22) แยกสาเหตุที่พลาด แล้วสร้างเฉพาะส่วนที่ตอบสาเหตุที่เห็น จากนั้นรันข้อ 22 ซ้ำเทียบ V5 → V6 · ไม่ใช้ planner: กฎที่ต้องตรวจกำหนดได้ล่วงหน้าจากคลังนโยบาย (routing ทำหน้าที่นี้แล้ว 50/50) และตาราง 19.3 ให้ขยับไป pattern ที่ซับซ้อนขึ้นเฉพาะเมื่อแบบง่ายพลาดให้เห็น",
-        "target": ["presence", "steps", "thb"],
-    },
 }
