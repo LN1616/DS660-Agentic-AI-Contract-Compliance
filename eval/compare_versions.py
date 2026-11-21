@@ -149,8 +149,9 @@ def markdown(sm: pd.DataFrame) -> str:
     out += ["", "## Change against the previous version (same mode)", "",
             "A change counts as **clear** only when both versions have 3 runs and their run ranges do not overlap; "
             "otherwise it is within run-to-run spread (or not enough runs yet).", ""]
-    for prev, cur in (("SC1", "SC2"), ("V1", "V2"), ("V2", "V3")):
-        if prev in by and cur in by:
+    for cur, v in VERSIONS.items():  # every version against the one it was built from (registry "prev")
+        prev = v.get("prev")
+        if prev in by and cur in by and VERSIONS[prev]["mode"] == v["mode"]:
             items = []
             for name, col, fmt, better in METRICS:
                 if col not in by[cur] or pd.isna(by[cur].get(col)) or pd.isna(by[prev].get(col)):

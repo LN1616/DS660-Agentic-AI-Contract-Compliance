@@ -95,18 +95,30 @@ def changes_rows():
 
 
 def type_block():
-    """Contract-type detection test (eval.type_eval): CUAD folder = answer key."""
+    """Contract-type detection test (eval.type_eval): CUAD folder = answer key. Before/after the title rule."""
     d = pd.read_csv(OUT / "type_eval_rows.csv")
     tr = json.load(open(sorted(glob.glob("traces/*_type_eval.json"))[-1], encoding="utf-8"))["totals"]
+    src = d.type_source.value_counts().to_dict() if "type_source" in d else {}
+    off = OUT / "type_eval_offline.csv"
+    offline = ""
+    if off.exists():
+        o = pd.read_csv(off)
+        dec = o[o.predicted != "-"]
+        offline = (f"<li><b>ตรวจกฎจากชื่อกับ CUAD ทั้ง {len(o)} ฉบับ</b> (ไม่ใช้ API): ชื่อบอกประเภท {len(dec)} ฉบับ ถูก "
+                   f"{int(dec.correct.sum())}/{len(dec)} ({dec.correct.mean():.1%}) · อีก {len(o) - len(dec)} ฉบับส่งให้ AI · "
+                   f"ที่เหลือผิดเพราะ CUAD ตั้งประเภทให้ชื่อผสมไม่สม่ำเสมอ (เช่น Promotion and Distribution = Promotion แต่ "
+                   f"License and Development = Development) จึงไม่แก้เพิ่มเพื่อไม่ให้จำเฉลย · กฎออกแบบโดยดูทั้ง 510 ฉบับ ตัวเลขนี้จึงเป็น in-sample</li>")
     miss = d[~d.correct.astype(bool)]
-    by = miss.groupby("truth").predicted.apply(lambda x: ", ".join(sorted(set(map(str, x)))))
-    rows = "".join(f"<tr><td>{escape(t)}</td><td>{int((d.truth == t).sum() - (miss.truth == t).sum())}/{int((d.truth == t).sum())}</td>"
-                   f"<td>{escape(p)}</td></tr>" for t, p in by.items())
+    miss_txt = ("ไม่มีข้อที่พลาด" if miss.empty else
+                " · ".join(f"{escape(t)} → {escape(str(p))}" for t, p in zip(miss.truth, miss.predicted)))
     return f"""<div class="fig" id="fig-typetest">
-    <div class="fig-title"><h3>ระบุประเภทสัญญา (ก่อนเลือกนโยบาย)</h3><span class="small">eval/type_eval.py · 14 พ.ย. · รันรอบเดียว</span></div>
-    <p class="small">เฉลย = โฟลเดอร์ประเภทของ CUAD · สุ่ม 2 ฉบับต่อประเภท (seed คงที่) {d.truth.nunique()} ประเภท = {len(d)} ฉบับ · ถูก <b>{d.correct.mean():.0%} ({int(d.correct.sum())}/{len(d)})</b> ·
-    ต้นทุนทั้งชุด {tr['cost_usd'] * THB_PER_USD:.1f} บาท (${tr['cost_usd']:.2f}) · {tr['llm_calls']} call</p>
-    <div class="tbox"><table class="t" style="min-width:420px"><thead><tr><th>ประเภทที่พลาด (เฉลย)</th><th>ถูก</th><th>ระบบตอบว่า</th></tr></thead><tbody>{rows}</tbody></table></div>
+    <div class="fig-title"><h3>ระบุประเภทสัญญา (ก่อนเลือกนโยบาย) · ก่อนและหลังแก้</h3><span class="small">eval/type_eval.py · 50 ฉบับชุดเดิม (2 ฉบับต่อประเภท, seed คงที่)</span></div>
+    <ul class="small">
+      <li><b>ก่อนแก้ (14 พ.ย.): {39}/50 = 78%</b> · AI ตัดสินเองจากเนื้อหา และ prompt สั่งว่า "อย่าดูแค่ชื่อสัญญา" · ทั้ง 11 ข้อที่พลาดมีชื่อสัญญาบอกประเภทอยู่แล้ว เช่น OUTSOURCING AGREEMENT ถูกตอบว่า Manufacturing</li>
+      <li><b>หลังแก้ (21 พ.ย., commit 4fec8b0): {int(d.correct.sum())}/{len(d)} = {d.correct.mean():.0%}</b> · โค้ดอ่านชื่อสัญญาก่อน AI ตัดสินเฉพาะเมื่อชื่อไม่บอก ·
+        ตัดสินโดยชื่อ {src.get("title", 0)} ฉบับ โดย AI {src.get("ai", 0)} ฉบับ · ต้นทุนทั้งชุด {tr['cost_usd'] * THB_PER_USD:.1f} บาท (${tr['cost_usd']:.2f}) · {tr['llm_calls']} call (ยังเรียก AI 1 call ต่อฉบับเพื่อระบุคู่สัญญา) · {miss_txt}</li>
+      {offline}
+    </ul>
   </div>
 """
 
