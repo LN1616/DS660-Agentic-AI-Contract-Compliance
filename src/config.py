@@ -16,6 +16,7 @@ PRICE_OUT_PER_M = float(os.getenv("PRICE_OUT_PER_M", "2.50"))
 MAX_STEPS = int(os.getenv("MAX_STEPS", "10"))      # LLM calls allowed per policy rule
 MAX_REJECTIONS = int(os.getenv("MAX_REJECTIONS", "2"))  # verifier send-backs per rule
 PARALLEL_RULES = int(os.getenv("PARALLEL_RULES", "5"))  # rules checked at the same time (1 = one after another)
+CALL_TIMEOUT_MS = int(os.getenv("CALL_TIMEOUT_MS", "120000"))  # one AI call; a dropped connection otherwise hangs
 MIN_CALL_GAP = float(os.getenv("MIN_CALL_GAP", "4.5"))  # seconds between AI calls (free tier ~15 requests/min)
 
 CUAD_DIR = Path(os.getenv("CUAD_DIR", ROOT.parent / "CUAD_v1" / "CUAD_v1"))
@@ -36,7 +37,8 @@ def client():
                 "from https://aistudio.google.com/apikey"
             )
         from google import genai
-        _client = genai.Client()
+        from google.genai import types
+        _client = genai.Client(http_options=types.HttpOptions(timeout=CALL_TIMEOUT_MS))
     return _client
 
 

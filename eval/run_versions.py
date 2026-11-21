@@ -26,9 +26,24 @@ N_EVAL, N_INJ = os.getenv("VERSIONS_N", "6"), os.getenv("VERSIONS_N_INJ", "3")  
 WT = ROOT.parent / "_version_worktrees"   # outside the repo
 
 
-def sh(args, cwd, env=None):
+RUN_TIMEOUT = int(os.getenv("VERSIONS_RUN_TIMEOUT", "1800"))  # seconds per step; a hung API call otherwise waits forever
+ATTEMPTS = 2
+
+
+def sh(args, cwd, env=None, timeout=None):
     print("  $", " ".join(map(str, args)), flush=True)
-    subprocess.run(args, cwd=cwd, env=env, check=True)
+    proc = subprocess.Popen(args, cwd=cwd, env=env)
+    try:
+        rc = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        if os.name == "nt":  # the venv launcher starts a child python: kill the whole tree
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+        else:
+            proc.kill()
+        proc.wait()
+        raise
+    if rc:
+        raise subprocess.CalledProcessError(rc, args)
 
 
 def run_commit(commit: str, runs: int):
@@ -47,10 +62,20 @@ def run_commit(commit: str, runs: int):
             if (out / "eval_rows.csv").exists() and (out / "injection_run.csv").exists():
                 print(f"skip {commit} run{k} (done)")
                 continue
-            print(f"== {commit} run{k}  systems={systems}", flush=True)
-            sh([sys.executable, "-m", "eval.run_eval", N_EVAL, "--systems", systems, "--out", str(out)], wt, env)
-            sh([sys.executable, "-m", "eval.injection_test", "run", str(out / "eval_rows.csv"), N_INJ, "AB", systems,
-                str(out)], wt, env)
+            for attempt in range(1, ATTEMPTS + 1):
+                if out.exists():  # a partial run would mix its traces into the next attempt
+                    shutil.rmtree(out)
+                print(f"== {commit} run{k}  systems={systems}  attempt {attempt}", flush=True)
+                try:
+                    sh([sys.executable, "-m", "eval.run_eval", N_EVAL, "--systems", systems, "--out", str(out)],
+                       wt, env, RUN_TIMEOUT)
+                    sh([sys.executable, "-m", "eval.injection_test", "run", str(out / "eval_rows.csv"), N_INJ, "AB",
+                        systems, str(out)], wt, env, RUN_TIMEOUT)
+                    break
+                except subprocess.TimeoutExpired:
+                    print(f"!! {commit} run{k} timed out after {RUN_TIMEOUT}s (hung API call), retrying", flush=True)
+            else:
+                raise RuntimeError(f"{commit} run{k} timed out {ATTEMPTS} times")
     finally:
         subprocess.run(["git", "worktree", "remove", "--force", str(wt)], cwd=ROOT)
 

@@ -31,7 +31,9 @@ class Trace:
                 break
             except Exception as e:
                 code = getattr(e, "code", None)
-                if code not in (429, 500, 503) or attempt == retries:
+                if "timeout" in type(e).__name__.lower() or "timed out" in str(e).lower():
+                    code = "timeout"  # hung connection cut by config.CALL_TIMEOUT_MS: retry like an overload
+                if code not in (429, 500, 503, "timeout") or attempt == retries:
                     raise
                 wait = min(60, 5 * 2 ** attempt)
                 self.records.append({"type": "retry", "label": label, "code": code, "wait_sec": wait})
