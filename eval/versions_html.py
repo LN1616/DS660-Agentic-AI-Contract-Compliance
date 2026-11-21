@@ -508,6 +508,28 @@ def faith_block(sm):
 """
 
 
+def takeaways_block():
+    """Key takeaways after every version has 3 runs on both test sets (22 Nov). Numbers: summary.csv and the long set."""
+    return """<div class="fig" id="fig-takeaways">
+    <div class="fig-title"><h3>Key takeaways (ทุกเวอร์ชัน 3 รอบ · 22 พ.ย.)</h3><span class="small">สัญญาสั้น 6 ฉบับ SC1–V7 · สัญญายาว 4 ฉบับ SC2 · V6 · V7 · เกณฑ์: ชัดเจนเมื่อช่วงต่ำสุด–สูงสุดไม่ซ้อนกัน</span></div>
+    <ol class="small">
+      <li><b>ความแม่นเรื่อง "มี/ไม่มีข้อนี้" ไม่ต่างกันชัดเจนในทุกเวอร์ชัน</b> · สัญญาสั้น 20.7–22.3 จาก 24 · สัญญายาว 9.0–10.7 จาก 16 · ช่วงซ้อนกันทั้งหมด ·
+        ข้อที่ผิดกระจุกอยู่ไม่กี่ช่อง (สัญญาสั้น 20 จาก 24 ช่องถูกทุกเวอร์ชันทุกรอบ) และบางช่องเฉลยของ CUAD เองตีความได้สองทาง</li>
+      <li><b>H1 ไม่เป็นจริง:</b> agent ไม่ได้หาข้อสัญญาเจอมากกว่า single call บนสัญญายาว (SC2 10.7 · V6 9.7 · V7 9.0 จาก 16)</li>
+      <li><b>สิ่งที่ harness ให้จริง คือหลักฐานที่เชื่อได้และความผิดที่มองเห็น:</b> quote มีจริง 100% ใน agent ทุกเวอร์ชันบนสัญญายาว (single call 89%) ·
+        quote ตรงข้อที่ CUAD เฉลย 92–93% เทียบ 80% · ข้อที่ผิดถูกติดธงให้คนตรวจ (V6 15 จาก 19)</li>
+      <li><b>ความปลอดภัยแก้ได้ด้วย harness ไม่ใช่ด้วย prompt:</b> ประกาศปลอมหลอก single call ได้ 9 จาก 15 · prompt กันได้แค่ลดเหลือ 3.3 · agent ที่ห่อเนื้อสัญญาเป็นข้อมูลถูกหลอก 0 ทุกเวอร์ชันตั้งแต่ V2</li>
+      <li><b>harness ลดต้นทุนและเวลาได้ชัดเจน:</b> V3 ตัวจับการค้นไม่คืบหน้า · V4 ตรวจกฎขนาน 36 → 31 วิ · V5 งบ context token −10% ต้นทุน 0.75 → 0.68 บาท ·
+        แต่การเพิ่มความสามารถ (V6 tool ใหม่ ค้นหน้า 2 cross-check) ทำให้แพงขึ้น 0.68 → 0.86 บาทโดยไม่แม่นขึ้น</li>
+      <li><b>แก้ตามหลักฐาน และยอมรับเมื่อสมมติฐานผิด:</b> งบ call 16 ไม่ช่วย (และซ่อนความผิดจากตัวตรวจซ้ำ) · prompt ของ V7 แก้ได้ 1 ข้อแต่ทำให้อีกข้อผิด ·
+        ไล่ทีละข้อพบว่าสาเหตุที่เหลือคือคำค้นบนสัญญายาว (ข้อยกเว้นความเสียหายทางอ้อมไม่มีคำว่า liability) ไม่ใช่งบหรือการตีความ</li>
+      <li><b>เลือกใช้:</b> V5 เป็นค่าเริ่มต้น (แม่นเท่ากันและถูกที่สุดในกลุ่ม agent) · V6 สำหรับสัญญายาวเมื่อต้องการ cross-check และตามอ้างอิง · single call เหมาะเป็น baseline หรือร่างแรกที่ต้องการเร็วและถูก แต่ต้องมีคนตรวจ quote และระวังข้อความหลอก</li>
+      <li><b>ข้อจำกัด:</b> สัญญา 10 ฉบับและ model เดียว · 3 รอบยังน้อยสำหรับทดสอบนัยสำคัญ · faithfulness ของ V6/V7 ยังไม่ได้คำนวณ · prompt ของ V7 ไม่ได้ให้ single call ด้วย</li>
+    </ol>
+  </div>
+"""
+
+
 def build():
     sm = pd.read_csv(BASE / "summary.csv").set_index("version")
     head = ["", "เวอร์ชัน · เปลี่ยนอะไร", "บทเรียนที่ใช้", *[h for h, _, _ in COLS], "ผลตัดสินเปลี่ยนระหว่างรอบ", "รอบ", "โค้ด"]
@@ -534,7 +556,7 @@ def build():
              + ["–"] * (len(COLS) + 3) for a, (b, c) in ((k, (v["name_th"], v["concept"])) for k, v in PLANNED.items())]
     th = "".join(f"<th>{escape(h)}</th>" for h in head)
     tb = "".join(r if isinstance(r, str) else "<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
-    return protocol_block() + setup_block() + answer_matrix_block() + long_table_block() + long_matrix_block() + budget_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
+    return takeaways_block() + protocol_block() + setup_block() + answer_matrix_block() + long_table_block() + long_matrix_block() + budget_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
     <div class="fig-title"><h3>วิวัฒนาการของระบบ: แต่ละเวอร์ชันเปลี่ยน harness อะไร และผลเปลี่ยนอย่างไร</h3><span class="small">ค่าเฉลี่ยของรอบที่รัน · ตัวเลขเล็กคือช่วงต่ำสุด–สูงสุด (แสดงเมื่อรอบต่างกัน)</span></div>
     <p class="note"><b>สถานะ:</b> {status}</p>
     <p class="small">Baseline: SC1 → SC2 · Agent: {' → '.join(k for k in VERSIONS if k.startswith('V'))}{(" → <span class='small'>" + ' → '.join(PLANNED) + " (แผน)</span>") if PLANNED else ""}</p>
