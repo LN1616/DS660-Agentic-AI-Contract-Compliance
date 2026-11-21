@@ -55,6 +55,7 @@ def main(n: int, systems=("B2 single call", "A1 agent"), out=None, long: bool = 
         config.OUTPUT_DIR = Path(out)
         config.TRACE_DIR = Path(out) / "traces"
         config.TRACE_DIR.mkdir(parents=True, exist_ok=True)
+    config.EVAL_NO_FALLBACK = True  # EP01 lock the provider while measuring: one model per run (package H)
     rules = config.load_playbook()
     rows = []
     if long:  # test 22: the n longest CUAD contracts (75-154 pages), long Windows paths

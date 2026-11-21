@@ -94,7 +94,7 @@ def main():
     _, e1 = g.run("search_contract", "limitation of liability", 1)
     r2, e2 = g.run("search_contract", "  Limitation   of LIABILITY ", 2)          # same query, other spacing/case
     assert e2["event"] == "repeat" and "already called" in r2 and "<contract_data>" not in r2, "repeat not caught"
-    doc.search = lambda q, k=5: first                                            # every later search: nothing new
+    doc.search = lambda q, k=5, page=1: first                                           # every later search: nothing new
     _, e3 = g.run("search_contract", "cap on damages", 3)
     r4, e4 = g.run("search_contract", "aggregate liability", 4)
     assert (e3["event"], e4["event"]) == ("no_new", "no_new") and "verifier requires" in r4, "no-progress not caught"

@@ -61,7 +61,7 @@ def run_commit(commit: str, runs: int):
         shutil.copytree(ROOT / "eval", wt / "eval", dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copytree(ROOT / "data", wt / "data", dirs_exist_ok=True)
         shutil.copy(ROOT / ".env", wt / ".env")
-        env = {**os.environ, "CUAD_DIR": str(config.CUAD_DIR), "PYTHONIOENCODING": "utf-8"}
+        env = {**os.environ, "CUAD_DIR": str(config.CUAD_DIR), "PYTHONIOENCODING": "utf-8", "EVAL_NO_FALLBACK": "1"}
         for k in range(1, runs + 1):
             out = BASE / commit / f"run{k}"
             if (out / "eval_rows.csv").exists() and (LONG or (out / "injection_run.csv").exists()):

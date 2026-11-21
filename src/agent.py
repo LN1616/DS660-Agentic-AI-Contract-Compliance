@@ -26,7 +26,7 @@ from . import config
 from .document import ContractDocument
 from .schemas import (ClauseFinding, ContractAuditReport, CrossCheckNote, CrossCheckNotes, ReviewedFinding,
                       finding_json_schema)
-from .trace import Trace
+from .trace import Trace, estimate_tokens
 
 QUOTE_THRESHOLD = 88
 
@@ -298,6 +298,8 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
         before, after = budget.apply(contents)
         if after < before:
             trace.event("context", rule=rule["id"], step=step, chars_before=before, chars_after=after)
+        # EP01/EP07 pre-flight: free local estimate every step (an exact count_tokens per step would cost a request)
+        trace.preflight(f"{rule['id']} step {step}", estimate_tokens(after + len(SYSTEM)), method="chars/4")
         cfg = types.GenerateContentConfig(
             system_instruction=SYSTEM.format(language=LANGUAGES[lang]),
             temperature=0,
@@ -400,8 +402,12 @@ def cross_check(findings: list[ReviewedFinding], trace: Trace, lang: str = "th")
     resp = trace.call_model(lambda m: config.client().models.generate_content(
         model=m, contents=prompt, config=types.GenerateContentConfig(
             temperature=0, response_mime_type="application/json", response_schema=CrossCheckNotes)), label="cross-check")
-    parsed = resp.parsed if isinstance(getattr(resp, "parsed", None), CrossCheckNotes) else \
-        CrossCheckNotes.model_validate_json(resp.text or '{"notes": []}')
+    try:
+        parsed = resp.parsed if isinstance(getattr(resp, "parsed", None), CrossCheckNotes) else \
+            CrossCheckNotes.model_validate_json(resp.text or '{"notes": []}')
+    except ValidationError:  # cut or malformed answer (finish_reason is in the trace): no notes rather than a crash
+        trace.event("cross_check", proposed=0, kept=0, error="unparseable answer")
+        return []
     ids = {r.finding.policy_id for r in findings}
     kept = []
     for n in parsed.notes:

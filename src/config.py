@@ -30,6 +30,31 @@ RETRIES_BEFORE_FALLBACK = int(os.getenv("RETRIES_BEFORE_FALLBACK", "2"))
 CONTEXT_BUDGET_CHARS = int(os.getenv("CONTEXT_BUDGET_CHARS", "16000"))  # ~4,000 tokens of conversation per rule
 CHECKPOINT_DIR = Path(os.getenv("CHECKPOINT_DIR", ROOT / "outputs" / "checkpoints"))
 
+# Package H (EP01 builder's dials). While measuring, a fallback model would mix two models into one run (EP01 "lock
+# the provider"): eval.run_versions sets EVAL_NO_FALLBACK=1. The app keeps the fallback.
+EVAL_NO_FALLBACK = os.getenv("EVAL_NO_FALLBACK") == "1"
+# What each model family accepts and how big its input window is (EP01 "check modality before sending").
+# First matching prefix wins. An unknown model is treated as text-only with a small window, so a model swap
+# (package F) fails safe: the single call sends extracted text instead of the PDF, scanned pages are skipped with a note.
+MODEL_CAPS = [
+    ("gemini-", {"inputs": {"text", "pdf", "image"}, "context": 1_048_576}),
+    ("gemma-", {"inputs": {"text", "image"}, "context": 128_000}),
+]
+UNKNOWN_MODEL_CAPS = {"inputs": {"text"}, "context": 32_000}
+PREFLIGHT_MAX_SHARE = float(os.getenv("PREFLIGHT_MAX_SHARE", "0.9"))  # refuse a request above 90% of the window
+
+
+def model_caps(model: str) -> dict:
+    for prefix, caps in MODEL_CAPS:
+        if model.lower().startswith(prefix):
+            return caps
+    return UNKNOWN_MODEL_CAPS
+
+
+def accepts(model: str, kind: str) -> bool:
+    """kind: 'text' | 'pdf' | 'image'."""
+    return kind in model_caps(model)["inputs"]
+
 CUAD_DIR = Path(os.getenv("CUAD_DIR", ROOT.parent / "CUAD_v1" / "CUAD_v1"))
 PLAYBOOK_PATH = ROOT / "data" / "policy_playbook.yaml"
 OUTPUT_DIR = ROOT / "outputs"

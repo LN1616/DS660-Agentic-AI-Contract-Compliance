@@ -21,6 +21,21 @@ def error_code(e: Exception):
     return code
 
 
+def finish_reason(resp) -> str | None:
+    """'STOP', 'MAX_TOKENS', 'SAFETY', ... of the first candidate (None when the response has none)."""
+    cands = getattr(resp, "candidates", None) or []
+    r = getattr(cands[0], "finish_reason", None) if cands else None
+    if r is None:
+        return None
+    return getattr(r, "name", None) or str(r).split(".")[-1]
+
+
+def estimate_tokens(chars: int) -> int:
+    """Free local estimate (about 4 characters per token for English contracts), used where an exact
+    count_tokens call per step would cost a request against the rate limit."""
+    return chars // 4 + 1
+
+
 class Trace:
     _last_call = 0.0  # shared across runs in one process, for pacing
     _pace = threading.Lock()
@@ -54,16 +69,32 @@ class Trace:
         u = getattr(resp, "usage_metadata", None)
         tin = (getattr(u, "prompt_token_count", 0) or 0) if u else 0
         tout = ((getattr(u, "candidates_token_count", 0) or 0) + (getattr(u, "thoughts_token_count", 0) or 0)) if u else 0
+        reason = finish_reason(resp)
         self.records.append({"type": "llm", "label": label, "sec": round(time.time() - t0, 2),
-                             "tokens_in": tin, "tokens_out": tout, "model": model or config.MODEL})
+                             "tokens_in": tin, "tokens_out": tout, "model": model or config.MODEL,
+                             # EP01: the version the provider actually served (a model name can move to a new release)
+                             "model_version": getattr(resp, "model_version", None), "finish_reason": reason})
+        if reason not in (None, "STOP"):  # EP01: a cut or blocked answer looks like a normal one unless checked
+            self.records.append({"type": "finish_reason", "label": label, "reason": reason})
         return resp
+
+    def preflight(self, label: str, tokens: int, model: str | None = None, method: str = "count_tokens"):
+        """EP01 / EP07: know the input size before sending. Records it; refuses a request that would not fit
+        (above PREFLIGHT_MAX_SHARE of the model's window) with a clear message instead of a provider error."""
+        m = model or config.MODEL
+        limit = config.model_caps(m)["context"]
+        self.records.append({"type": "preflight", "label": label, "tokens": int(tokens), "limit": limit,
+                             "method": method, "model": m})
+        if tokens > limit * config.PREFLIGHT_MAX_SHARE:
+            raise ValueError(f"{label}: about {tokens:,} input tokens, more than {config.PREFLIGHT_MAX_SHARE:.0%} "
+                             f"of {m}'s {limit:,}-token window. Split the document or use a model with a larger window.")
 
     def call_model(self, make, label: str):
         """make(model_name) -> one API call. Tries config.MODEL; when it keeps failing with a retryable error
         and config.FALLBACK_MODEL is set, the same request goes to the fallback model (EP08 graceful failure).
         Every call records which model answered, so results can be reported per model."""
         models = [config.MODEL]
-        if config.FALLBACK_MODEL and config.FALLBACK_MODEL != config.MODEL:
+        if config.FALLBACK_MODEL and config.FALLBACK_MODEL != config.MODEL and not config.EVAL_NO_FALLBACK:
             models.append(config.FALLBACK_MODEL)
         for i, m in enumerate(models):
             last = i == len(models) - 1
