@@ -44,6 +44,10 @@ How to work:
 Rules for the finding:
 - extracted_text must be copied word for word from the contract. Never paraphrase it.
 - Use MISSING only after at least two different searches found nothing relevant.
+- MISSING means the contract has NO clause on the rule's topic at all. A clause on the topic still counts when it is
+  narrower than the rule, worded differently, or fails the rule (for example it only excludes some kinds of damages,
+  or it puts the obligation on the other party): judge that clause as COMPLIANT, DEVIATED or VIOLATED, never MISSING.
+- Read the rule text to the end: when it names the status for a situation, use that status.
 - compliance_status: COMPLIANT, DEVIATED (minor difference), VIOLATED (clear breach), MISSING (no clause).
 - risk_level: HIGH for VIOLATED or MISSING on liability/termination; use judgement otherwise.
 - issue_description and action_required in {language}. suggested_redline in English (the contract language).

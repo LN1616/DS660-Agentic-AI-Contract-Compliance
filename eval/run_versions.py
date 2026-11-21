@@ -46,8 +46,13 @@ def sh(args, cwd, env=None, timeout=None):
         raise subprocess.CalledProcessError(rc, args)
 
 
+LONG = os.getenv("VERSIONS_LONG") == "1"  # test 22: the 4 longest CUAD contracts, no injection files
+if LONG:
+    BASE = Path(os.getenv("VERSIONS_OUT", ROOT / "outputs" / "versions_long"))
+
+
 def run_commit(commit: str, runs: int):
-    systems = ",".join(COMMITS[commit])
+    systems = os.getenv("VERSIONS_SYSTEMS") or ",".join(COMMITS[commit])
     wt = WT / commit
     if wt.exists():
         subprocess.run(["git", "worktree", "remove", "--force", str(wt)], cwd=ROOT)
@@ -59,7 +64,7 @@ def run_commit(commit: str, runs: int):
         env = {**os.environ, "CUAD_DIR": str(config.CUAD_DIR), "PYTHONIOENCODING": "utf-8"}
         for k in range(1, runs + 1):
             out = BASE / commit / f"run{k}"
-            if (out / "eval_rows.csv").exists() and (out / "injection_run.csv").exists():
+            if (out / "eval_rows.csv").exists() and (LONG or (out / "injection_run.csv").exists()):
                 print(f"skip {commit} run{k} (done)")
                 continue
             for attempt in range(1, ATTEMPTS + 1):
@@ -67,6 +72,10 @@ def run_commit(commit: str, runs: int):
                     shutil.rmtree(out)
                 print(f"== {commit} run{k}  systems={systems}  attempt {attempt}", flush=True)
                 try:
+                    if LONG:
+                        sh([sys.executable, "-m", "eval.run_eval", "4", "--long", "--systems", systems, "--out", str(out)],
+                           wt, env, RUN_TIMEOUT)
+                        break
                     sh([sys.executable, "-m", "eval.run_eval", N_EVAL, "--systems", systems, "--out", str(out)],
                        wt, env, RUN_TIMEOUT)
                     sh([sys.executable, "-m", "eval.injection_test", "run", str(out / "eval_rows.csv"), N_INJ, "AB",
