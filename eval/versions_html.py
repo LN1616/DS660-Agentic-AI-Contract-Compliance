@@ -293,6 +293,25 @@ def long_matrix_block():
 """
 
 
+def long_summary():
+    """One-line result of the long round for a version measured only there (read from the saved summaries)."""
+    import json
+    parts = []
+    for name, d in (("งบ 10 call", "run1"), ("งบตามความยาว 16 call", "run2_budget")):
+        p = OUT / "long_round" / d / "long_round_summary.json"
+        if not p.exists():
+            continue
+        s = json.load(open(p, encoding="utf-8"))["systems"]
+        a, b = s.get("A1 agent", {}), s.get("B2 single call")
+        parts.append(f"<b>{name}:</b> มี/ไม่มีถูก {a.get('presence')} · quote จริง {a.get('quote_real', 0):.0%} · quote ตรงข้อที่ CUAD เฉลย {a.get('quote_gold')} · "
+                     f"{a.get('sec_per_contract'):.0f} วิ · {a.get('baht_per_contract'):.2f} บาทต่อฉบับ"
+                     + (f" (single call: {b['presence']} · quote จริง {b['quote_real']:.0%} · {b['quote_gold']} · {b['sec_per_contract']:.0f} วิ · {b['baht_per_contract']:.2f} บาท)" if b else ""))
+    if not parts:
+        return "วัดบนสัญญายาว · ยังไม่มีผล"
+    return ("<span class='small'><b>วัดบนสัญญายาว 4 ฉบับ (75–154 หน้า) 1 รอบ · ไม่เทียบตรงกับคอลัมน์สัญญาสั้นได้</b><br>"
+            + "<br>".join(parts) + "<br>ผลรายข้อ: ตาราง \"สัญญายาว (ข้อ 22)\" ด้านบน</span>")
+
+
 def faith_block(sm):
     """Package B results (eval/faithfulness.py on the saved reports of every run)."""
     need = ["faith_issue", "faith_issue_fact", "faith_summary", "faith_summary_fact", "summary_bad"]
@@ -338,20 +357,28 @@ def build():
     sm = pd.read_csv(BASE / "summary.csv").set_index("version")
     head = ["", "เวอร์ชัน · เปลี่ยนอะไร", "บทเรียนที่ใช้", *[h for h, _, _ in COLS], "ผลตัดสินเปลี่ยนระหว่างรอบ", "รอบ", "โค้ด"]
     rows = []
+    ncols = 3 + len(COLS) + 3
     for vid, v in VERSIONS.items():
         if vid in sm.index:
             rows.append(row(vid, sm.loc[vid]))
+        elif v.get("eval_set") == "long":  # measured on the long round only: say so instead of "0/3"
+            rows.append(f"<tr><td><b>{vid}</b></td><td><b>{escape(v['name_th'])}</b><br><span class='small'>{escape(v['change_th'])}</span></td>"
+                        f"<td>{escape(v['concept'])}</td><td colspan='{ncols - 4}'>{long_summary()}</td><td><code>{v['commit']}</code></td></tr>")
         else:  # batch not reached this version yet
             rows.append([f"<b>{vid}</b>", f"<b>{escape(v['name_th'])}</b><br><span class='small'>{escape(v['change_th'])}</span>",
                          escape(v["concept"])] + ["–"] * len(COLS) + ["–", f"0/{RUNS}", f"<code>{v['commit']}</code>"])
-    done = {vid: int(sm.loc[vid, "runs"]) if vid in sm.index else 0 for vid in VERSIONS}
-    status = ("ครบ 3 รอบทุกเวอร์ชัน" if all(n >= RUNS for n in done.values()) else
-              "ยังไม่ครบ · รอบที่เสร็จแล้ว: " + " · ".join(f"{k} {n}/{RUNS}" for k, n in done.items())
-              + " · ตัวเลขของเวอร์ชันที่ยังไม่ครบ 3 รอบเป็นค่าชั่วคราว ยังใช้เทียบไม่ได้")
+    done = {vid: int(sm.loc[vid, "runs"]) if vid in sm.index else 0 for vid, v in VERSIONS.items()
+            if v.get("eval_set") != "long"}
+    longs = [vid for vid, v in VERSIONS.items() if v.get("eval_set") == "long"]
+    status = ((f"ครบ 3 รอบทุกเวอร์ชันบนสัญญาสั้น ({', '.join(done)})" if all(n >= RUNS for n in done.values()) else
+               "ยังไม่ครบ · รอบที่เสร็จแล้ว: " + " · ".join(f"{k} {n}/{RUNS}" for k, n in done.items())
+               + " · ตัวเลขของเวอร์ชันที่ยังไม่ครบ 3 รอบเป็นค่าชั่วคราว ยังใช้เทียบไม่ได้")
+              + (f" · {', '.join(longs)} วัดบนสัญญายาว 4 ฉบับแทน (ข้อ 22) ไม่ได้รันชุดสัญญาสั้นซ้ำเพื่อประหยัดต้นทุน"
+                 " เพราะสิ่งที่เพิ่มมุ่งแก้สัญญายาว · ผลของ V6 บนสัญญาสั้นจึงยังไม่ได้วัด" if longs else ""))
     rows += [[f"<b>{a}</b>", f"<b>{escape(b)}</b><br><span class='small'>แผน · ยังไม่ได้สร้าง</span>", escape(c)]
              + ["–"] * (len(COLS) + 3) for a, (b, c) in ((k, (v["name_th"], v["concept"])) for k, v in PLANNED.items())]
     th = "".join(f"<th>{escape(h)}</th>" for h in head)
-    tb = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
+    tb = "".join(r if isinstance(r, str) else "<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
     return protocol_block() + setup_block() + answer_matrix_block() + long_matrix_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
     <div class="fig-title"><h3>วิวัฒนาการของระบบ: แต่ละเวอร์ชันเปลี่ยน harness อะไร และผลเปลี่ยนอย่างไร</h3><span class="small">ค่าเฉลี่ยของรอบที่รัน · ตัวเลขเล็กคือช่วงต่ำสุด–สูงสุด (แสดงเมื่อรอบต่างกัน)</span></div>
     <p class="note"><b>สถานะ:</b> {status}</p>
