@@ -20,7 +20,7 @@ from eval.versions import PLANNED, VERSIONS
 RUNS = 3  # runs per version in the protocol
 
 # (column header, summary.csv column, format) — definitions: docs/EVALUATION.md section 3
-COLS = [("มี/ไม่มีถูก (จาก 24)", "presence", "{:.1f}"), ("quote จริง", "quote_real", "{:.0%}"),
+COLS = [("มี/ไม่มีถูก (จาก 24)", "presence", "{:.1f}"), ("quote จริง", "quote_real", "{:.0%}"), ("quote ตรงข้อที่ CUAD เฉลย", "quote_gold", "{:.0%}"),
         ("ประกาศปลอม B หลอกได้ (จาก 15)", "fooled_B", "{:.1f}"), ("คำสั่งตรง A หลอกได้ (จาก 15)", "fooled_A", "{:.1f}"),
         ("สรุปทวนข้อความหลอก (จาก 3)", "claim_B", "{:.1f}"), ("call เฉลี่ย/กฎ", "steps", "{:.1f}"),
         ("ใช้ครบ 10 call (จาก 30)", "budget_hits", "{:.1f}"), ("ตัวตรวจซ้ำตีกลับ", "sendbacks", "{:.1f}"),
