@@ -471,23 +471,50 @@ def rule_title(r: dict) -> str:
 
 
 # ================= sidebar =================
-with st.sidebar:
-    st.radio(t("lang"), ["th", "en"], horizontal=True, key="lang",
-             format_func=lambda x: {"th": "ไทย", "en": "English"}[x])
-    st.caption(t("tagline"))
+SIDEBAR_CSS = """<style>
+section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] { padding-top: 0.75rem; padding-bottom: 0.5rem; }
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.45rem; }
+section[data-testid="stSidebar"] .sbh { font-weight: 700; font-size: 0.98rem; margin: 0.35rem 0 -0.15rem; }
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] { padding: 0.5rem 0.75rem; }
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] small { display: none; }
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary { padding-top: 0.3rem; padding-bottom: 0.3rem; }
+</style>"""
+TEXT.update({  # short sidebar labels; the long ones stay for history, reports and the start tab
+    "pm_auto_s": ("อัตโนมัติ", "Automatic"), "pm_fixed_s": ("กำหนดเอง", "Manual"),
+    "pm_help": ("อัตโนมัติ: AI ระบุประเภทสัญญา แล้วใช้นโยบายของประเภทนั้น · กำหนดเอง: ใช้ชุดกฎเดียวกับทุกสัญญา",
+                "Automatic: AI finds the contract type and uses that type's policy · Manual: one fixed rule set for every contract"),
+    "m_agent_s": ("Agent", "Agent"), "m_baseline_s": ("Single call", "Single call"),
+    "vision_s": ("อ่านหน้า scan ด้วย vision", "Read scanned pages (vision)"),
+    "up_label": ("PDF ไทย / อังกฤษ · ไฟล์สแกนให้เปิด vision", "PDF in Thai or English · turn on vision for scans"),
+})
 
-    st.subheader(t("s_policy"))
-    policy_mode = pick(st.radio, "policy_mode", ["pm_auto", "pm_fixed"], format_func=label_fn(st.session_state.lang),
-                       label_visibility="collapsed")
+
+def short_label(key: str) -> str:
+    return t({"pm_auto": "pm_auto_s", "pm_fixed": "pm_fixed_s", "m_agent": "m_agent_s", "m_baseline": "m_baseline_s"}[key])
+
+
+def sb_head(key: str):
+    st.markdown(f'<div class="sbh">{t(key)}</div>', unsafe_allow_html=True)
+
+
+with st.sidebar:
+    # compact layout (22 Nov): everything fits one screen; long explanations moved to help tooltips and captions
+    st.markdown(SIDEBAR_CSS, unsafe_allow_html=True)
+    st.radio(t("lang"), ["th", "en"], horizontal=True, key="lang", label_visibility="collapsed",
+             format_func=lambda x: {"th": "ไทย", "en": "English"}[x])
+
+    sb_head("s_policy")
+    policy_mode = pick(st.radio, "policy_mode", ["pm_auto", "pm_fixed"], format_func=short_label,
+                       label_visibility="collapsed", horizontal=True, help=t("pm_help"))
     auto = policy_mode == "pm_auto"
     general_picked = []
     if auto:
         n_types = sum(bool(v) for g, v in current_library().items() if g != GENERAL)
-        st.caption(t("lib_status", n=n_types))
         gen_rules = current_library().get(GENERAL, [])
-        # compact: company-wide rules and the library link sit in one collapsed expander; the title shows the count picked
+        # company-wide rules, library status and the library link in one collapsed expander; title shows the count picked
         n_gen = sum(bool(st.session_state.get(f"gen_{r['id']}")) for r in gen_rules)
         with st.expander(f"{t('gen_pick')} · {n_gen}/{len(gen_rules)}" if gen_rules else t("go_policy_lib"), expanded=False):
+            st.caption(t("lib_status", n=n_types))
             if gen_rules:
                 st.caption(t("gen_pick_note"))
                 general_picked = [r["id"] for r in gen_rules
@@ -515,20 +542,21 @@ with st.sidebar:
         st.caption(t("rules_used", n=n_rules))
         st.button(t("go_policy_rules"), width="stretch", on_click=lambda: st.session_state.__setitem__("goto", "policy"))
 
-    st.subheader(t("s_contract"))
+    sb_head("s_contract")
     source, sample = "c_upload", None
-    st.caption(t("up_req"))
-    upload = st.file_uploader(t("contract_file"), type="pdf", key="contract_pdf", label_visibility="collapsed")
+    upload = st.file_uploader(t("up_label"), type="pdf", key="contract_pdf", help=t("up_req"))
     n_pages = page_count(upload.getvalue()) if upload is not None else 0
     if upload is not None:
         st.caption(t("up_pages", n=n_pages) + " · " + t("rec_long" if n_pages > LONG_PAGES else "rec_short"))
 
-    st.subheader(t("s_method"))
+    sb_head("s_method")
     # Agent first = default: on 20 Nov it matched or beat single call on accuracy and was not fooled by planted
     # instructions (0/15 vs 5/15 rules), at ~38 s and under 1 baht per short contract (guide, test log tab)
-    mode = pick(st.radio, "method", ["m_agent", "m_baseline"], format_func=label_fn(st.session_state.lang),
-                label_visibility="collapsed", captions=[t("cap_agent"), t("cap_single")])
-    vision = st.toggle(t("vision"), value=True)
+    mode = pick(st.radio, "method", ["m_agent", "m_baseline"], format_func=short_label,
+                label_visibility="collapsed", horizontal=True,
+                help=f"Agent: {t('cap_agent')}  \nSingle call: {t('cap_single')}")
+    st.caption(t("cap_agent" if mode == "m_agent" else "cap_single"))
+    vision = st.toggle(t("vision_s"), value=True, help=t("vision"))
     st.caption(f"Model: `{config.MODEL}` · Harness: `{config.release_name()}`")
     run = st.button(t("run"), type="primary", width="stretch",
                     disabled=n_rules == 0 or (source == "c_upload" and upload is None))
