@@ -35,7 +35,9 @@ You check ONE company policy rule at a time against the contract.
 How to work:
 1. Use search_contract to find clauses about the rule. If results look unrelated, search again with other wording (synonyms, legal terms).
 2. Use read_passage to read a promising passage in full before you judge it.
-3. When you are confident, call submit_finding exactly once.
+3. If the clause depends on another part ("subject to Section 9.3", "as set out in Exhibit B") use follow_reference;
+   if a defined term decides the answer, use lookup_definition. In a long contract, search_contract page=2 shows more.
+4. When you are confident, call submit_finding exactly once.
 
 Rules for the finding:
 - extracted_text must be copied word for word from the contract. Never paraphrase it.
@@ -55,11 +57,28 @@ TOOLS = types.Tool(function_declarations=[
     types.FunctionDeclaration(
         name="search_contract",
         description=("Search the contract with legal words or a section number (e.g. '12.3'). Returns up to 5 "
-                     "passages (id, section, page, first 700 characters). If a search brings nothing new, read the "
-                     "passages the harness names instead of searching again."),
+                     "passages (id, section, page, first 700 characters). page=2 gives the next 5 results (useful in "
+                     "long contracts). If a search brings nothing new, read the passages the harness names instead."),
         parameters_json_schema={"type": "object",
-                                "properties": {"query": {"type": "string", "description": "Words to search for"}},
+                                "properties": {"query": {"type": "string", "description": "Words to search for"},
+                                               "page": {"type": "integer", "description": "1 (default) or 2 for results 6-10"}},
                                 "required": ["query"]},
+    ),
+    types.FunctionDeclaration(
+        name="follow_reference",
+        description=("Open the part of the contract that a passage refers to, e.g. 'Article 9.3', 'Section 12.1.4', "
+                     "'Exhibit B', 'Schedule 2'. Returns it in full, like read_passage."),
+        parameters_json_schema={"type": "object",
+                                "properties": {"reference": {"type": "string", "description": "e.g. Section 9.3 or Exhibit B"}},
+                                "required": ["reference"]},
+    ),
+    types.FunctionDeclaration(
+        name="lookup_definition",
+        description=("Open the passage where a defined term is defined (e.g. 'Net Sales', 'Losses'), when the meaning "
+                     "matters for the rule. Returns it in full."),
+        parameters_json_schema={"type": "object",
+                                "properties": {"term": {"type": "string", "description": "The defined term, without quotes"}},
+                                "required": ["term"]},
     ),
     types.FunctionDeclaration(
         name="read_passage",
@@ -77,12 +96,15 @@ TOOLS = types.Tool(function_declarations=[
 ])
 
 
+LOOKUP_TOOLS = ("search_contract", "read_passage", "follow_reference", "lookup_definition")
 MAX_OUTPUT_TOKENS = 4096  # normal tool calls and findings use < 500; caps a runaway answer (EP01 finish_reason "length")
 
 
 def _passage_block(p: dict) -> str:
     head = f"[{p.get('passage_id', '?')}] section {p.get('section', '-')} · page {p.get('page', '?')}"
     tail = f"\n(next passage: {p['next_passage_id']})" if p.get("next_passage_id") else ""
+    if p.get("same_section_passages"):
+        tail += f"\n(more of this section: {', '.join(p['same_section_passages'])})"
     return f"{head}\n{p.get('text', '')}{tail}"
 
 
@@ -143,7 +165,8 @@ class ContextBudget:
             text = (f"[earlier search '{it['arg']}' returned {it['ids'] or 'nothing'}; text removed to save space. "
                     f"read_passage shows any of them in full]")
         else:
-            text = f"[earlier read of {it['arg']} removed to save space; read it again if you need to quote it]"
+            text = (f"[earlier {it['tool']}('{it['arg']}') = {it['ids'] or 'nothing'} removed to save space; "
+                    f"call it again if you need to quote it]")
             self.guard.done.pop(it["fp"], None)
         contents[it["ci"]].parts[it["pi"]] = types.Part.from_function_response(name=it["tool"], response={"result": text})
         it["stub"] = True
@@ -160,7 +183,7 @@ class ContextBudget:
         for it in self.items:
             if self.size(contents) <= self.budget:
                 break
-            if not it["stub"] and it["tool"] == "read_passage" and it["ci"] < turns[-1]:
+            if not it["stub"] and it["tool"] != "search_contract" and it["ci"] < turns[-1]:
                 self._stub(contents, it)
         return before, self.size(contents)
 
@@ -199,11 +222,16 @@ class ProgressGuard:
                     f"and is earlier in this conversation. " + self.advice())
             return harness_note(note), {"step": step, "tool": tool, "arg": arg, "event": "repeat", "new": 0}
         self.done[fp] = step
-        raw = self.doc.search(arg) if tool == "search_contract" else self.doc.read(arg)
+        if tool == "search_contract":
+            q, _, pg = arg.partition(" [page ")
+            raw = self.doc.search(q, page=int(pg.rstrip("]") or 1))
+        else:
+            raw = {"read_passage": self.doc.read, "follow_reference": self.doc.follow_reference,
+                   "lookup_definition": self.doc.lookup_definition}[tool](arg)
         ids = [p["passage_id"] for p in raw] if isinstance(raw, list) else ([raw["passage_id"]] if "passage_id" in raw else [])
         new = [i for i in ids if i not in self.seen]
         self.seen |= set(ids)
-        if tool == "read_passage":
+        if tool != "search_contract":  # read / follow_reference / lookup_definition all return a passage in full
             self.read |= set(ids)
         result = as_contract_data(raw)
         event = "ok"
@@ -283,11 +311,13 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
         replies, tracked = [], []
         for fc in calls:
             args = dict(fc.args or {})
-            tool_log.append(f"{fc.name}({args.get('query') or args.get('passage_id') or ''})")
+            arg = (args.get("query") or args.get("passage_id") or args.get("reference") or args.get("term") or "")
+            if fc.name == "search_contract" and int(args.get("page") or 1) > 1:
+                arg = f"{arg} [page {int(args['page'])}]"
+            tool_log.append(f"{fc.name}({arg})")
             if on_tool:
                 on_tool(rule, tool_log[-1])
-            if fc.name in ("search_contract", "read_passage"):
-                arg = args.get("query", "") if fc.name == "search_contract" else args.get("passage_id", "")
+            if fc.name in LOOKUP_TOOLS:
                 result, entry = guard.run(fc.name, arg, step)
                 path.append(entry)
                 if entry["event"] == "ok" or entry["event"] == "no_new":
@@ -319,7 +349,7 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
                     result = {"rejected": feedback}
             else:
                 result = tool_error(f"there is no tool called {fc.name}.",
-                                    "use search_contract, read_passage or submit_finding.")
+                                    "use " + ", ".join(LOOKUP_TOOLS) + " or submit_finding.")
             replies.append(types.Part.from_function_response(name=fc.name, response={"result": result}))
         for pi, name, arg, ids, fp in tracked:
             budget.add(len(contents), pi, name, arg, ids, fp)

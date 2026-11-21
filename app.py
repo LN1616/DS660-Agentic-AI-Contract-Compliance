@@ -1810,10 +1810,11 @@ def trajectory_html(path: list[dict]) -> str:
             cls, sub = ("repeat", t("tj_repeat")) if ev == "repeat" else \
                        ("none", t("tj_none")) if ev == "no_new" else ("", t("tj_new", n=e.get("new", 0)))
             chips.append(f"<span class='c {cls}'>🔍 {arg}<small>{sub}</small></span>")
-        elif tool == "read_passage":
+        elif tool in ("read_passage", "follow_reference", "lookup_definition"):
+            icon = {"read_passage": "📖", "follow_reference": "↪", "lookup_definition": "📚"}[tool]
             cls = "repeat" if ev == "repeat" else "read"
             sub = t("tj_repeat") if ev == "repeat" else f"step {e['step']}"
-            chips.append(f"<span class='c {cls}'>📖 {arg}<small>{sub}</small></span>")
+            chips.append(f"<span class='c {cls}'>{icon} {arg}<small>{sub}</small></span>")
         elif tool == "submit_finding":
             if ev == "pass":
                 sc = f" · {e['score']:.0f}/100" if e.get("score") else ""

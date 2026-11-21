@@ -24,6 +24,18 @@ HEADING = re.compile(
 )
 MAX_PASSAGE = 1200
 
+# V6 indexes for long contracts (built once per document, plain code)
+ATTACH_HEAD = re.compile(r"^\s*(EXHIBIT|SCHEDULE|APPENDIX|ANNEX|ATTACHMENT)\s+([A-Z0-9][\w.-]*)", re.MULTILINE)
+REF = re.compile(r"(?i)\b(section|article|clause|exhibit|schedule|appendix|annex|attachment)\s+([A-Z0-9][\w.-]*)")
+DEFINES = [re.compile(r'["“]([A-Z][\w\s/&-]{1,50}?)["”]\s*(?:shall\s+)?(?:means?|has the meaning|refers to)'),
+           re.compile(r'\((?:the\s+|each,?\s+an?\s+|an?\s+|hereinafter\s+)?["“]([A-Z][\w\s/&-]{1,50}?)["”]\)')]
+
+
+def _num(label: str) -> str:
+    """'Section 9.3.' / 'ARTICLE 9' / '9.3' -> '9.3' (lower case, no trailing dot)."""
+    m = re.search(r"([\dIVXLC]+(?:\.\d+)*)\.?\s*$", label.strip(), flags=re.IGNORECASE)
+    return (m.group(1) if m else label.strip()).lower().rstrip(".")
+
 
 @dataclass
 class Passage:
@@ -79,7 +91,29 @@ class ContractDocument:
         self._matrix = self._vec.fit_transform([p.text for p in self.passages])
         self._norm_pages = {p.number: normalize(strip_boilerplate(p.text, self._boilerplate(pages)))
                             for p in pages}
+        self._build_indexes()
         self.reset()
+
+    def _build_indexes(self):
+        """Section numbers, attachment headings and defined terms -> passage ids (for follow_reference and
+        lookup_definition). An attachment heading listed in a table of contents near the start is skipped
+        when the same heading appears again later (the attachment itself)."""
+        self._sections: dict[str, list[str]] = {}
+        for p in self.passages:
+            if p.section:
+                self._sections.setdefault(_num(p.section), []).append(p.id)
+        self._attach: dict[str, str] = {}
+        for i, p in enumerate(self.passages):
+            for m in ATTACH_HEAD.finditer(p.text):
+                key = f"{m.group(1).lower()} {m.group(2).lower().rstrip('.')}"
+                if key not in self._attach or i > len(self.passages) * 0.3:
+                    self._attach[key] = p.id
+        self._defs: dict[str, str] = {}
+        for p in self.passages:
+            for rx in DEFINES:
+                for m in rx.finditer(p.text):
+                    term = " ".join(m.group(1).split()).lower()
+                    self._defs.setdefault(term, p.id)  # first definition wins
 
     @staticmethod
     def _boilerplate(pages: list[Page]) -> set[str]:
@@ -108,9 +142,11 @@ class ContractDocument:
                 ids.append(self.passages[i].id)
         return ids
 
-    def search(self, query: str, k: int = 5) -> list[dict]:
+    def search(self, query: str, k: int = 5, page: int = 1) -> list[dict]:
+        """page 2 = results ranked 6-10 (V6: on long contracts the answer was often just past the top 5)."""
         out = []
-        for pid in self.ranked_ids(query, k):
+        page = max(1, min(int(page or 1), 4))
+        for pid in self.ranked_ids(query, k * page)[k * (page - 1):]:
             p = self._by_id[pid]
             self.seen.add(p.id)
             out.append({"passage_id": p.id, "section": p.section or "-", "page": p.page,
@@ -127,6 +163,40 @@ class ContractDocument:
         nxt = self.passages[idx + 1] if idx + 1 < len(self.passages) else None
         return {"passage_id": p.id, "section": p.section or "-", "page": p.page, "text": p.text,
                 "next_passage_id": nxt.id if nxt else None}
+
+    def follow_reference(self, reference: str) -> dict:
+        """'Article 9.3' / 'Section 12.1.4' / 'Exhibit H-8' -> that part of the contract, read in full."""
+        m = REF.search(reference or "")
+        if not m:
+            return {"error": f"'{reference}' is not a section, article, exhibit or schedule reference"}
+        kind, label = m.group(1).lower(), m.group(2).rstrip(".")
+        if kind in ("section", "article", "clause"):
+            num = _num(label)
+            ids = self._sections.get(num) or next(
+                (v for k, v in self._sections.items() if k.startswith(num + ".")), None)
+            if not ids:
+                return {"error": f"No {kind} {label} found in the contract"}
+            out = self.read(ids[0])
+            if len(ids) > 1:
+                out["same_section_passages"] = ids[1:6]
+            return out
+        pid = self._attach.get(f"{kind} {label.lower()}")
+        if not pid and "-" in label:  # "Exhibit H-8" = page 8 of Exhibit H
+            pid = self._attach.get(f"{kind} {label.lower().split('-')[0]}")
+        if not pid:
+            return {"error": f"No {kind} {label} heading found in the contract"}
+        return self.read(pid)
+
+    def lookup_definition(self, term: str) -> dict:
+        """Where a defined term ('"Net Sales" means ...') is defined, read in full. Exact term first, then closest."""
+        t = " ".join((term or "").strip(' "“”').split()).lower()
+        pid = self._defs.get(t)
+        if not pid and self._defs:
+            best = max(self._defs, key=lambda d: fuzz.ratio(t, d))
+            pid = self._defs[best] if fuzz.ratio(t, best) >= 85 else None
+        if not pid:
+            return {"error": f"No definition of '{term}' found in the contract"}
+        return self.read(pid)
 
     # ---------- checks used by the verifier (plain code, no LLM) ----------
     def find_quote(self, quote: str) -> tuple[int | None, float]:
