@@ -255,8 +255,118 @@ def answer_matrix_block():
 """
 
 
+LONG_SET = [("SC2", "de66498", "B2"), ("V6", "e0a1dcc", "A1"), ("V7", "e100ccf", "A1")]  # test 22, 3 runs each
+
+
+def _long_runs(commit):
+    import glob
+    return [Path(p).parent for p in sorted(glob.glob(str(OUT / "versions_long" / commit / "run*" / "eval_rows.csv")))]
+
+
+def long_stats():
+    """Per version on the long set: one dict per run (presence, quotes, time, cost, flagged wrong answers)."""
+    import glob
+    import json
+    from eval.compare_versions import gold_match
+    res = {}
+    for vid, commit, mode in LONG_SET:
+        runs = []
+        for d in _long_runs(commit):
+            x = pd.read_csv(d / "eval_rows.csv")
+            x = x[x.system.str.startswith(mode)]
+            g = x[x.presence_correct.notna()]
+            verified = {}
+            for fp in glob.glob(str(d / "eval_reports" / f"{mode}_*.json")):
+                rep = json.load(open(fp, encoding="utf-8"))
+                for f in rep["findings"]:
+                    verified[(rep["contract_title"][:40], f["finding"]["policy_id"])] = f.get("verified")
+            wrong = g[~g.presence_correct.astype(bool)]
+            flagged = sum(verified.get((r.contract, r.rule)) is False for _, r in wrong.iterrows())
+            hit, tot = gold_match(d, mode)
+            n = x.contract.nunique()
+            runs.append({"presence": int(g.presence_correct.astype(bool).sum()), "graded": len(g),
+                         "quote_real": float(x.quote_real.dropna().mean()) if x.quote_real.notna().any() else None,
+                         "quote_gold": hit / tot if tot else None, "gold_txt": f"{hit}/{tot}",
+                         "wrong": len(wrong), "flagged": flagged,
+                         "budget_hits": int((g.steps >= 10).sum()) if mode == "A1" else None,
+                         "sec": x.sec.sum() / n, "thb": x.cost_usd.sum() / n * THB_PER_USD})
+        res[vid] = runs
+    return res
+
+
+def long_table_block():
+    """Test 22 summary: SC2 vs V6 vs V7 on the long set, mean and min-max over the runs (same rule as the short set)."""
+    st = long_stats()
+    if not any(st.values()):
+        return ""
+    def c(runs, k, fmt):
+        v = [r[k] for r in runs if r.get(k) is not None]
+        if not v:
+            return "–"
+        m, lo, hi = sum(v) / len(v), min(v), max(v)
+        return fmt.format(m) + ("" if lo == hi else f"<br><span class='small'>{fmt.format(lo)}–{fmt.format(hi)}</span>")
+    rows = []
+    for vid, _, mode in LONG_SET:
+        runs = st.get(vid) or []
+        if not runs:
+            rows.append(f"<tr><td><b>{vid}</b></td>" + "<td>–</td>" * 8 + f"<td>0/{RUNS}</td></tr>")
+            continue
+        fl = (f"{sum(r['flagged'] for r in runs)}/{sum(r['wrong'] for r in runs)}" if mode == "A1" else "–")
+        rows.append(f"<tr><td><b>{vid}</b></td><td>{c(runs, 'presence', '{:.1f}')}</td><td>{c(runs, 'quote_real', '{:.0%}')}</td>"
+                    f"<td>{c(runs, 'quote_gold', '{:.0%}')}</td><td>{c(runs, 'wrong', '{:.1f}')}</td><td>{fl}</td>"
+                    f"<td>{c(runs, 'budget_hits', '{:.1f}') if mode == 'A1' else '–'}</td><td>{c(runs, 'sec', '{:.0f}')}</td>"
+                    f"<td>{c(runs, 'thb', '{:.2f}')}</td><td>{len(runs)}/{RUNS}</td></tr>")
+    return f"""<div class="fig" id="fig-long">
+    <div class="fig-title"><h3>สัญญายาว (ข้อ 22): single call เทียบ V6 และ V7</h3><span class="small">4 ฉบับ 75–154 หน้า · 3 รอบต่อเวอร์ชัน · แต่ละเวอร์ชันรันจาก commit ของตัวเอง · งบ 10 call ทุกเวอร์ชัน</span></div>
+    <div class="tbox"><table class="t" style="min-width:720px"><thead><tr><th></th><th>มี/ไม่มีถูก (จาก 16)</th><th>quote จริง</th>
+    <th>quote ตรงข้อที่ CUAD เฉลย</th><th>ตอบผิด (จาก 16)</th><th>ข้อที่ผิดถูกติดธงให้คนตรวจ<br><span class='small'>รวมทุกรอบ</span></th>
+    <th>ใช้ครบ 10 call (จาก 16)</th><th>เวลา/ฉบับ (วิ)</th><th>ต้นทุน/ฉบับ (บาท)</th><th>รอบ</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>
+    <p class="small">เกณฑ์เดียวกับสัญญาสั้น: ต่างกันชัดเจนเมื่อช่วงต่ำสุด–สูงสุดไม่ซ้อนกัน · รอบที่ 1 ของ SC2 และ V6 คือรอบสัญญายาววันที่ 21 พ.ย. (โค้ดตรงกับ commit ของเวอร์ชัน) ·
+    การทดลองเพิ่มงบเป็น 16 call (V6 1 รอบ: มี/ไม่มีถูก 8/16 · งบหมด 4/16 · 1.51 บาทต่อฉบับ) เป็นการทดลองข้างเคียง ไม่นับในตารางนี้</p>
+  </div>
+"""
+
+
 def long_matrix_block():
-    """Long-contract round (test 22): single call, V6 (10 calls), V6 with the length-scaled budget, per rule vs CUAD."""
+    """Long set per rule vs CUAD: one mark per run for SC2, V6, V7 (same layout as the short-set matrix)."""
+    rules = {r["id"]: r for r in config.load_playbook()}
+    data, vids = {}, []
+    for vid, commit, mode in LONG_SET:
+        runs = _long_runs(commit)
+        if not runs:
+            continue
+        vids.append(vid)
+        for d in runs:
+            x = pd.read_csv(d / "eval_rows.csv")
+            x = x[x.system.str.startswith(mode) & x.presence_correct.notna()]
+            for _, r in x.iterrows():
+                data.setdefault((r.contract, r.rule), {"exp": r.expected}).setdefault(vid, []).append(
+                    (bool(r.presence_correct), r.predicted))
+    if not data:
+        return ""
+    th = "".join(f"<th>{vid}</th>" for vid in vids)
+    body, tot = [], {vid: [0, 0] for vid in vids}
+    for (c, rid), v in sorted(data.items()):
+        tds = []
+        for vid in vids:
+            rr = v.get(vid, [])
+            ok = [o for o, _ in rr]
+            tot[vid][0] += sum(ok)
+            tot[vid][1] += len(ok)
+            tds.append(f"<td title='{escape(' · '.join(p for _, p in rr))}' style='text-align:center;letter-spacing:1px'>{_marks(ok)}</td>")
+        exp = "มี" if v["exp"] == "PRESENT" else "ไม่มี"
+        body.append(f"<tr><td>{escape(_short(c))}</td><td>{rid} {escape(rules[rid]['title'])}</td><td><b>{exp}</b></td>{''.join(tds)}</tr>")
+    foot = "".join(f"<td style='text-align:center'><b>{a}/{n}</b></td>" for a, n in tot.values())
+    return f"""<div class="fig" id="fig-answers-long">
+    <div class="fig-title"><h3>สัญญายาว (ข้อ 22): ผลรายข้อเทียบเฉลย CUAD</h3><span class="small">4 ฉบับ × 4 กฎที่ให้คะแนนได้ · 1 เครื่องหมายต่อ 1 รอบ · ชี้เมาส์ดูคำตอบแต่ละรอบ</span></div>
+    <div class="tbox"><table class="t" style="min-width:600px"><thead><tr><th>สัญญา</th><th>กฎ</th><th>เฉลย CUAD</th>{th}</tr></thead>
+    <tbody>{''.join(body)}<tr><td colspan="3"><b>รวมถูก</b> (ทุกรอบ)</td>{foot}</tr></tbody></table></div>
+  </div>
+"""
+
+
+def _old_long_matrix_block():
+    """Superseded: 1-run long round (kept for the record)."""
     runs = [("single call", OUT / "long_round" / "run1", "B2"), ("V6 · งบ 10 call", OUT / "long_round" / "run1", "A1"),
             ("V6 · งบตามความยาว (16)", OUT / "long_round" / "run2_budget", "A1")]
     runs = [r for r in runs if (r[1] / "eval_rows.csv").exists()]
@@ -379,7 +489,7 @@ def build():
              + ["–"] * (len(COLS) + 3) for a, (b, c) in ((k, (v["name_th"], v["concept"])) for k, v in PLANNED.items())]
     th = "".join(f"<th>{escape(h)}</th>" for h in head)
     tb = "".join(r if isinstance(r, str) else "<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
-    return protocol_block() + setup_block() + answer_matrix_block() + long_matrix_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
+    return protocol_block() + setup_block() + answer_matrix_block() + long_table_block() + long_matrix_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
     <div class="fig-title"><h3>วิวัฒนาการของระบบ: แต่ละเวอร์ชันเปลี่ยน harness อะไร และผลเปลี่ยนอย่างไร</h3><span class="small">ค่าเฉลี่ยของรอบที่รัน · ตัวเลขเล็กคือช่วงต่ำสุด–สูงสุด (แสดงเมื่อรอบต่างกัน)</span></div>
     <p class="note"><b>สถานะ:</b> {status}</p>
     <p class="small">Baseline: SC1 → SC2 · Agent: {' → '.join(k for k in VERSIONS if k.startswith('V'))}{(" → <span class='small'>" + ' → '.join(PLANNED) + " (แผน)</span>") if PLANNED else ""}</p>
