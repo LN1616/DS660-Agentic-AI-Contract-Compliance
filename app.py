@@ -485,12 +485,14 @@ with st.sidebar:
         n_types = sum(bool(v) for g, v in current_library().items() if g != GENERAL)
         st.caption(t("lib_status", n=n_types))
         gen_rules = current_library().get(GENERAL, [])
-        if gen_rules:
-            st.markdown(f"**{t('gen_pick')}**")
-            st.caption(t("gen_pick_note"))
-            general_picked = [r["id"] for r in gen_rules
-                              if st.checkbox(f"{r['id']} · {rule_title(r)}", key=f"gen_{r['id']}", value=False)]
-        st.button(t("go_policy_lib"), width="stretch", on_click=lambda: st.session_state.__setitem__("goto", "policy"))
+        # compact: company-wide rules and the library link sit in one collapsed expander; the title shows the count picked
+        n_gen = sum(bool(st.session_state.get(f"gen_{r['id']}")) for r in gen_rules)
+        with st.expander(f"{t('gen_pick')} · {n_gen}/{len(gen_rules)}" if gen_rules else t("go_policy_lib"), expanded=False):
+            if gen_rules:
+                st.caption(t("gen_pick_note"))
+                general_picked = [r["id"] for r in gen_rules
+                                  if st.checkbox(f"{r['id']} · {rule_title(r)}", key=f"gen_{r['id']}", value=False)]
+            st.button(t("go_policy_lib"), width="stretch", on_click=lambda: st.session_state.__setitem__("goto", "policy"))
         n_rules = 1  # the library (or the AI) always provides criteria
     else:
         src_key = pick(st.selectbox, "policy", list(POLICY_SOURCES), format_func=label_fn(st.session_state.lang), label_visibility="collapsed")
