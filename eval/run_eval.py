@@ -50,15 +50,21 @@ def grade(report, fname, rules, system, sec, totals):
     return rows
 
 
-def main(n: int, systems=("B2 single call", "A1 agent"), out=None):
+def main(n: int, systems=("B2 single call", "A1 agent"), out=None, long: bool = False):
     if out:  # one folder per run: rows, full reports and traces
         config.OUTPUT_DIR = Path(out)
         config.TRACE_DIR = Path(out) / "traces"
         config.TRACE_DIR.mkdir(parents=True, exist_ok=True)
     rules = config.load_playbook()
     rows = []
-    for fname in DEV_SET[:n]:
+    if long:  # test 22: the n longest CUAD contracts (75-154 pages), long Windows paths
+        from eval.long_offline_check import LP, longest
+        files = longest(n)
+    else:
+        LP, files = "", DEV_SET[:n]
+    for fname in files:
         pdf = pdf_path(fname)
+        pdf = Path(LP + str(pdf.resolve())) if LP else pdf
         doc = ContractDocument(pdf.stem, extract_pages(pdf, use_vision=False))
         for system in systems:
             doc.reset()
@@ -91,5 +97,6 @@ if __name__ == "__main__":
     ap.add_argument("n", nargs="?", type=int, default=len(DEV_SET))
     ap.add_argument("--systems", default="B2,A1")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--long", action="store_true", help="the n longest CUAD contracts instead of the short dev set")
     a = ap.parse_args()
-    main(a.n, tuple(SYSTEMS[x] for x in a.systems.split(",")), a.out)
+    main(a.n, tuple(SYSTEMS[x] for x in a.systems.split(",")), a.out, a.long)
