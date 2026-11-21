@@ -208,7 +208,15 @@ def faith_block(sm):
                    f"<td>{c(vid, 'faith_summary_fact')}</td><td>{c(vid, 'faith_summary')}</td><td>{c(vid, 'summary_bad')}</td>"
                    f"<td>{c(vid, 'tool_err') if 'tool_err' in sm.columns else '–'}</td></tr>" for vid in VERSIONS if vid in sm.index)
     hc = (config.OUTPUT_DIR / "faithfulness_human_check.csv").exists()
-    return f"""<div class="fig" id="fig-faith">
+    from eval.flows_html import CSS, faith_flow
+    def rng(vids, col):
+        v = [sm.loc[k, col] for k in vids if k in sm.index and pd.notna(sm.loc[k].get(col))]
+        return f"{min(v):.0%}–{max(v):.0%}" if v else "–"
+    ag, sc = [k for k in VERSIONS if k.startswith("V")], [k for k in VERSIONS if k.startswith("SC")]
+    res = (f"<b>ผล (เฉพาะข้อเท็จจริง ค่าเฉลี่ยของแต่ละเวอร์ชัน):</b> คำอธิบายปัญหายึดสัญญา agent {rng(ag, 'faith_issue_fact')} · single call {rng(sc, 'faith_issue_fact')} · "
+           f"บทสรุปยึดผลรายข้อ agent {rng(ag, 'faith_summary_fact')} · single call {rng(sc, 'faith_summary_fact')} · "
+           f"บทสรุปที่ขัดผลตัดสินของโค้ด {int(sm['summary_bad'].fillna(0).sum())} ฉบับ · ยังเป็นค่าประมาณจนกว่าคนตรวจ 20 claim เสร็จ")
+    return CSS + faith_flow(res) + f"""<div class="fig" id="fig-faith">
     <div class="fig-title"><h3>ชุดงาน B · ข้อความที่ AI เขียนยึดหลักฐานแค่ไหน (faithfulness)</h3><span class="small">eval/faithfulness.py · ใช้รายงานที่เก็บไว้ของทุกรอบ ไม่รัน agent ใหม่ · 3 รอบต่อเวอร์ชัน</span></div>
     <div class="tbox"><table class="t"><thead><tr><th></th><th>คำอธิบายปัญหายึดสัญญา<br><span class='small'>เฉพาะข้อเท็จจริง</span></th><th>คำอธิบาย<br><span class='small'>ทุก claim</span></th>
     <th>บทสรุปยึดผลรายข้อ<br><span class='small'>เฉพาะข้อเท็จจริง</span></th><th>บทสรุป<br><span class='small'>ทุก claim</span></th><th>บทสรุปขัดผลตัดสินของโค้ด<br><span class='small'>จาก 6</span></th><th>tool error ต่อ call</th></tr></thead>

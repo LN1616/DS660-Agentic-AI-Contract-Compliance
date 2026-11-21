@@ -163,6 +163,37 @@ def figure(fid, title, sub, flow, alt, notes):
             f'<div class="dsvg">{LEGEND}{flow.svg(alt)}<ul class="notes">{li}</ul></div></div>')
 
 
+def faith_flow(res: str = "") -> str:
+    """Standard RAGAS faithfulness (left) next to how package B measures it (right), then the result."""
+    f = (Flow(cols=2)
+         .n("s0", 0, 0, "start", "📥 คำถาม + คำตอบ + context", "จากระบบ RAG ที่กำลังรัน")
+         .n("s1", 0, 1, "llm", "แยกคำตอบเป็น statement", "ข้อความสั้นที่ตรวจได้ทีละข้อ", "call 1")
+         .n("s2", 0, 2, "llm", "ตัดสินทีละ statement", "context รองรับไหม (ใช่ / ไม่)", "call 2")
+         .n("s3", 0, 3, "code", "คะแนน = รองรับ ÷ ทั้งหมด", "0–1 · สูง = ยึดหลักฐาน")
+         .n("s4", 0, 4, "ok", "คะแนนต่อคำตอบ")
+         .n("o0", 1, 0, "start", "📂 รายงานที่เก็บไว้ 18 รอบ", "6 เวอร์ชัน × 3 รอบ · ไม่รันใหม่")
+         .n("o1", 1, 1, "code", "โค้ดสร้าง context", "กฎ + หน้าที่อ้าง / ผลรายข้อ", "0 call")
+         .n("o2", 1, 2, "llm", "แยก claim + ตัดสินในครั้งเดียว", "structured output · ถูกลงครึ่ง", "1 call")
+         .n("o3", 1, 3, "code", "ตัด claim ที่เป็นคำแนะนำ", "ควร / ต้อง / แนะนำ → เฉพาะข้อเท็จจริง", "0 call")
+         .n("o4", 1, 4, "code", "คะแนน 2 แบบ + ตรวจด้วยโค้ด", "บทสรุปขัดผลตัดสิน? · tool error")
+         .n("o5", 1, 5, "hum", "คนตรวจ 20 claim แบบปิดเฉลย", "ตรงกับ AI ≥ 80% → เชื่อตัวเลขได้")
+         .n("o6", 1, 6, "ok", "ผลต่อเวอร์ชัน → ตารางด้านล่าง")
+         .e("s0", "s1").e("s1", "s2").e("s2", "s3").e("s3", "s4")
+         .e("o0", "o1").e("o1", "o2").e("o2", "o3").e("o3", "o4").e("o4", "o5").e("o5", "o6"))
+    notes = [
+        "<b>ซ้าย · มาตรฐาน RAGAS Faithfulness:</b> ใช้ LLM 2 ขั้น ขั้นแรกแยกคำตอบเป็น statement ขั้นสองตัดสินแต่ละ statement กับ context ที่ระบบดึงมา (แบบ NLI) "
+        "คะแนน = statement ที่ context รองรับ ÷ statement ทั้งหมด · วัดว่าคำตอบ <i>ยึดหลักฐานที่ดึงมา</i> ไม่ได้วัดว่าคำตอบถูกตามความจริง",
+        "<b>ขวา · ของเรา (ชุดงาน B):</b> หลักเดียวกัน ต่างกัน 4 จุด ① ใช้รายงานที่เก็บไว้ ไม่รัน agent ใหม่ "
+        "② context สร้างด้วยโค้ดตามชนิดข้อความ: คำอธิบายปัญหา = ข้อความกฎ + หน้าสัญญาที่มีข้อความที่อ้าง · บทสรุป = ผลรายข้อทั้งหมด "
+        "③ รวม 2 ขั้นเป็น 1 call ด้วย structured output (ต้นทุนครึ่งหนึ่ง ทั้งชุดราว 12 บาท) ④ เพิ่มสิ่งที่ RAGAS ไม่มี: ตัดคำแนะนำออกด้วยโค้ด ตรวจบทสรุปกับผลตัดสินของโค้ด และให้คนตรวจผู้ตรวจ",
+    ]
+    if res:
+        notes.append(res)
+    return figure("fig-faithflow", "Faithfulness · มาตรฐาน RAGAS เทียบกับวิธีของเรา",
+                  "ซ้าย: วิธีมาตรฐาน · ขวา: ชุดงาน B (eval/faithfulness.py)", f,
+                  "ผังเทียบขั้นตอนวัด faithfulness แบบ RAGAS กับวิธีของโครงการ", notes)
+
+
 def measured():
     if not SUMMARY.exists():
         return None
