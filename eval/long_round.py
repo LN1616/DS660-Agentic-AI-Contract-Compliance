@@ -52,6 +52,20 @@ def main(out: Path):
                 row = gold_rows[(gold_rows.contract == rep["contract_title"][:40]) & (gold_rows.rule == r["finding"]["policy_id"])]
                 ok = bool(len(row)) and str(row.presence_correct.iloc[0]) == "True"
                 helped.append((rep["contract_title"][:30], r["finding"]["policy_id"], sorted(used), ok))
+    # rules that used every allowed call (budget from the trace's step_budget event, else MAX_STEPS)
+    allowed = {}
+    for fp in glob.glob(str(out / "traces" / "*_eval_A1_*.json")):
+        recs = json.load(open(fp, encoding="utf-8")).get("records", [])
+        hit = [r.get("max_steps") for r in recs if r.get("type") == "step_budget" or r.get("event") == "step_budget"]
+        if hit:
+            allowed[Path(fp).name] = hit[0]
+    cap = max(allowed.values(), default=None)
+    z = rows[rows.system == "A1 agent"]
+    if not z.empty:
+        lim = cap or 10
+        g = z[z.presence_correct.notna()]  # rules graded for presence
+        res["A1 agent"]["used_whole_budget"] = (f"{int((g.steps >= lim).sum())}/{len(g)} graded · "
+                                                f"{int((z.steps >= lim).sum())}/{len(z)} all (budget {lim})")
     print(pd.DataFrame(res).to_string())
     print(f"\nV6 tool use (calls): {use}")
     print(f"findings that used a new tool: {len(helped)} · presence correct among them: {sum(h[3] for h in helped)}")

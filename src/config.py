@@ -13,7 +13,11 @@ VISION_MODEL = os.getenv("VISION_MODEL", MODEL)
 PRICE_IN_PER_M = float(os.getenv("PRICE_IN_PER_M", "0.30"))
 PRICE_OUT_PER_M = float(os.getenv("PRICE_OUT_PER_M", "2.50"))
 
-MAX_STEPS = int(os.getenv("MAX_STEPS", "10"))      # LLM calls allowed per policy rule
+MAX_STEPS = int(os.getenv("MAX_STEPS", "10"))      # LLM calls allowed per policy rule (contracts up to LONG_FROM_PAGES)
+# Call budget scaled by contract length: +1 call per PAGES_PER_EXTRA_STEP pages beyond LONG_FROM_PAGES, at most MAX_STEPS_LONG
+LONG_FROM_PAGES = int(os.getenv("LONG_FROM_PAGES", "30"))
+PAGES_PER_EXTRA_STEP = int(os.getenv("PAGES_PER_EXTRA_STEP", "7"))
+MAX_STEPS_LONG = int(os.getenv("MAX_STEPS_LONG", "16"))
 MAX_REJECTIONS = int(os.getenv("MAX_REJECTIONS", "2"))  # verifier send-backs per rule
 PARALLEL_RULES = int(os.getenv("PARALLEL_RULES", "5"))  # rules checked at the same time (1 = one after another)
 CALL_TIMEOUT_MS = int(os.getenv("CALL_TIMEOUT_MS", "120000"))  # one AI call; a dropped connection otherwise hangs

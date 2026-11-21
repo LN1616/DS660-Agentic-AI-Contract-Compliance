@@ -6,7 +6,8 @@ The harness (this file) decides what happens to each tool call:
     - search/read: run it on the ContractDocument and return the result
     - submit_finding: validate with Pydantic, then run the verifier.
       Rejected -> the reason goes back to the LLM as the tool result and the loop continues.
-Limits: MAX_STEPS LLM calls per rule, MAX_REJECTIONS send-backs.
+Limits: step_budget(pages) LLM calls per rule (MAX_STEPS=10 up to 30 pages, scaled up to 16 for long contracts),
+MAX_REJECTIONS send-backs.
 V5 harness: context budget (old search results become short stubs) · advice at the first search with nothing new ·
 fallback model (Trace.call_model) · one format for tool errors · checkpoint per rule (resume after a failure).
 """
@@ -268,6 +269,13 @@ def verify(f: ClauseFinding, rule: dict, doc: ContractDocument,
     return True, "", page, score
 
 
+def step_budget(n_pages: int) -> int:
+    """LLM calls allowed per rule: MAX_STEPS for short contracts, +1 per PAGES_PER_EXTRA_STEP pages beyond
+    LONG_FROM_PAGES, capped at MAX_STEPS_LONG. Long-contract round: 10/16 rules ran out of the fixed 10 calls."""
+    extra = max(0, n_pages - config.LONG_FROM_PAGES) // config.PAGES_PER_EXTRA_STEP
+    return max(config.MAX_STEPS, min(config.MAX_STEPS_LONG, config.MAX_STEPS + extra))
+
+
 def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th", on_tool=None,
                context: str = "") -> ReviewedFinding:
     prompt = (f"Policy rule {rule['id']} - {rule['title']}:\n{rule['text'].strip()}\n\n"
@@ -277,9 +285,12 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
     tool_log, rejections, last = [], 0, None
     guard, path = ProgressGuard(rule, doc), []
     budget = ContextBudget(guard, config.CONTEXT_BUDGET_CHARS)
+    max_steps = step_budget(len(doc.pages))
+    if max_steps != config.MAX_STEPS:
+        trace.event("step_budget", rule=rule["id"], pages=len(doc.pages), max_steps=max_steps)
 
-    for step in range(1, config.MAX_STEPS + 1):
-        final_step = step == config.MAX_STEPS
+    for step in range(1, max_steps + 1):
+        final_step = step == max_steps
         before, after = budget.apply(contents)
         if after < before:
             trace.event("context", rule=rule["id"], step=step, chars_before=before, chars_after=after)
@@ -358,7 +369,7 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
 
     if last:  # budget used up after a rejected submission: keep it, flagged as unverified
         return last
-    raise RuntimeError(f"{rule['id']}: no finding after {config.MAX_STEPS} steps")
+    raise RuntimeError(f"{rule['id']}: no finding after {max_steps} steps")
 
 
 CROSS_CHECK = """You review the findings of one contract review. Each finding was made separately for one policy rule,
