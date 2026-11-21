@@ -30,6 +30,13 @@ RETRIES_BEFORE_FALLBACK = int(os.getenv("RETRIES_BEFORE_FALLBACK", "2"))
 CONTEXT_BUDGET_CHARS = int(os.getenv("CONTEXT_BUDGET_CHARS", "16000"))  # ~4,000 tokens of conversation per rule
 CHECKPOINT_DIR = Path(os.getenv("CHECKPOINT_DIR", ROOT / "outputs" / "checkpoints"))
 
+# Release switches (22 Nov): the app runs the measured V5 harness. V6 long-contract tools (follow_reference,
+# lookup_definition, search page 2), the V6 cross-check reviewer and the V7 MISSING wording are kept but OFF:
+# 3 runs on every version showed the same accuracy at higher cost (V6 0.86, V7 0.88 vs V5 0.68 baht per contract).
+V6_TOOLS = os.getenv("V6_TOOLS") == "1"
+CROSS_CHECK = os.getenv("CROSS_CHECK") == "1"
+V7_MISSING_PROMPT = os.getenv("V7_MISSING_PROMPT") == "1"
+
 # Package H (EP01 builder's dials). While measuring, a fallback model would mix two models into one run (EP01 "lock
 # the provider"): eval.run_versions sets EVAL_NO_FALLBACK=1. The app keeps the fallback.
 EVAL_NO_FALLBACK = os.getenv("EVAL_NO_FALLBACK") == "1"

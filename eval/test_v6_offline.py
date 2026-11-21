@@ -39,6 +39,7 @@ class Scripted:
 
 
 def main():
+    config.V6_TOOLS = True  # V6 features are switched off in the release (V5); this test checks them
     config.MIN_CALL_GAP, config.FALLBACK_MODEL = 0, ""
     p = pdf_path(FNAME)
     doc = ContractDocument(FNAME.rsplit(".", 1)[0], extract_pages(Path(LP + str(p.resolve())), use_vision=False))
