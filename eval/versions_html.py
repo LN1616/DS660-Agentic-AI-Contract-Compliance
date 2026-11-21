@@ -201,7 +201,7 @@ def build():
     done = {vid: int(sm.loc[vid, "runs"]) if vid in sm.index else 0 for vid in VERSIONS}
     status = ("ครบ 3 รอบทุกเวอร์ชัน" if all(n >= RUNS for n in done.values()) else
               "ยังไม่ครบ · รอบที่เสร็จแล้ว: " + " · ".join(f"{k} {n}/{RUNS}" for k, n in done.items())
-              + " · หยุดกลางทาง รอรันต่อ · ตัวเลขของเวอร์ชันที่ยังไม่ครบ 3 รอบเป็นค่าชั่วคราว ยังใช้เทียบไม่ได้")
+              + " · ตัวเลขของเวอร์ชันที่ยังไม่ครบ 3 รอบเป็นค่าชั่วคราว ยังใช้เทียบไม่ได้")
     rows += [[f"<b>{a}</b>", f"<b>{escape(b)}</b><br><span class='small'>แผน · ยังไม่ได้สร้าง</span>", escape(c)]
              + ["–"] * (len(COLS) + 3) for a, (b, c) in ((k, (v["name_th"], v["concept"])) for k, v in PLANNED.items())]
     th = "".join(f"<th>{escape(h)}</th>" for h in head)
@@ -209,7 +209,7 @@ def build():
     return protocol_block() + setup_block() + steps_block(sm) + f"""<div class="fig" id="fig-versions">
     <div class="fig-title"><h3>วิวัฒนาการของระบบ: แต่ละเวอร์ชันเปลี่ยน harness อะไร และผลเปลี่ยนอย่างไร</h3><span class="small">ค่าเฉลี่ยของรอบที่รัน · ตัวเลขเล็กคือช่วงต่ำสุด–สูงสุด (แสดงเมื่อรอบต่างกัน)</span></div>
     <p class="note"><b>สถานะ:</b> {status}</p>
-    <p class="small">Baseline: SC1 → SC2 · Agent: V1 → V2 → V3 → <span class='small'>V4 → V5 → V6 (แผน)</span></p>
+    <p class="small">Baseline: SC1 → SC2 · Agent: {' → '.join(k for k in VERSIONS if k.startswith('V'))} → <span class='small'>{' → '.join(PLANNED)} (แผน)</span></p>
     <div class="tbox"><table class="t"><thead><tr>{th}</tr></thead><tbody>{tb}</tbody></table></div>
     <p class="small">นิยามตัวชี้วัดทุกตัว: docs/EVALUATION.md หัวข้อ 3 · ต้นทุนคิดจาก token × ราคาต่อ token แสดงเป็นบาทที่ {THB_PER_USD:.0f} บาท/US$ (US$ ในวงเล็บ) ·
     เวลารวมช่วงพัก 1 วินาทีระหว่าง call · "ผลตัดสินเปลี่ยนระหว่างรอบ" = คู่สัญญา × กฎ ที่ได้คำตอบไม่เหมือนกันทุกรอบ ทั้งที่โค้ดเดิม</p>
