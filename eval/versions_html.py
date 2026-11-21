@@ -119,7 +119,7 @@ def steps_block(sm):
         <div class="vweak"><b class="small">① ปัญหาที่พบ (ทำไมต้องมีเวอร์ชันนี้)</b><ul><li>{escape(v['weakness_th'])}</li></ul></div>
         <div><b class="small">② สิ่งที่เพิ่ม / เปลี่ยน (ทางแก้)</b><ul>{what or '<li>–</li>'}</ul></div>
         <div><b class="small">③ ทำไมควรช่วยได้</b><ul><li>{escape(v['why_th'])}</li></ul></div>
-        <div><b class="small">④ ผลที่วัดได้</b><ul>{effect_items(vid, sm)}</ul></div>
+        <div><b class="small">④ ผลที่วัดได้</b><ul>{effect_items(vid, sm)}{v.get('extra_th', '')}</ul></div>
       </div>
       <details><summary class="small">ขั้นตอนของ harness ทั้งหมด</summary><ol class="small">{steps}</ol></details>
     </div>""")
