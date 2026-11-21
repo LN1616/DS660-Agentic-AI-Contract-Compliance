@@ -9,6 +9,7 @@ COMMITS = {
     "de66498": {"B2": "SC2", "A1": "V2"},
     "cc21e1d": {"A1": "V3"},          # single-call code is the same as de66498 (SC2), not run again
     "34ec525": {"A1": "V4"},
+    "c67330f": {"A1": "V5"},
 }
 
 VERSIONS = {
@@ -131,25 +132,25 @@ VERSIONS = {
             "Findings are returned in rule order even though rules finish in any order; then the executive summary.",
         ],
     },
+    "V5": {
+        "weakness_th": 'ต้นทุน: input token ของ agent ราว 7.9 เท่าของ single call เพราะผลค้นเก่าทั้งหมดถูกส่งซ้ำทุก call และคำแนะนำของตัวจับการค้นอาจมาช้าไป (V3 รอบเดียววันที่ 20 พ.ย. ตีกลับเพิ่มจาก 9 เป็น 12) · ความทนทาน: การตรวจหนึ่งฉบับเป็นงานก้อนเดียว ถ้า API ล่มกลางทาง ผลของกฎที่เสร็จแล้วหายทั้งหมด · พบจริง: 14 พ.ย. API overload จนเวลาต่อฉบับขึ้นเป็น 130 วิ และรอบทดสอบ 21 พ.ย. หยุดกลางทาง ต้องรันใหม่ทั้งรอบ',
+        "prev": 'V4',
+        "flow": [('PDF → ส่วนย่อย + ดัชนีค้นหา', ''), ('ตรวจทุกกฎพร้อมกัน (sectioning)', ''), ('เรียก AI: ล้ม → retry แบบสุ่มช่วงรอ → model สำรอง (บันทึกว่า model ไหนตอบ)', 'new'), ('AI เลือก tool: search / read', ''), ('ตัวจับการค้นไม่คืบหน้า · บอกส่วนที่ต้องอ่านเร็วขึ้น', 'chg'), ('งบ context: นับ token ก่อนส่ง · ตัดผลค้นเก่าที่ไม่ใช้ออก', 'new'), ('ผล tool ห่อใน <contract_data>', ''), ('submit_finding → ตัวตรวจซ้ำ (โค้ด) · ตีกลับ ≤ 2 ครั้ง', ''), ('บันทึกผลทุกกฎลงไฟล์ทันที · รันใหม่ข้ามกฎที่เสร็จแล้ว', 'new'), ('สรุปผู้บริหาร', '')],
+        "why_th": 'ตัดผลค้นเก่าที่ไม่ใช้ควรลดต้นทุน · บอกส่วนที่ตัวตรวจซ้ำต้องการตั้งแต่การค้นครั้งแรกที่ไม่เจอส่วนใหม่ควรลดการตีกลับ · model สำรองและ checkpoint ทำให้ตรวจจนจบได้แม้ API ล่ม และไม่จ่ายซ้ำกฎที่เสร็จแล้ว · รวมเป็นเวอร์ชันเดียวได้โดยยังแยกผลได้: model สำรองและ checkpoint ทำงานเฉพาะเมื่อ call ล้ม รอบปกติจึงไม่เปลี่ยน ต้นทุนและจำนวน call ที่เปลี่ยนมาจากงบ context · ส่วนความทนทานวัดแยกด้วยการจำลอง API ล่ม · ถ้า model สำรองตอบในรอบทดสอบ จะรายงานแยก',
+        "target": ['thb', 'tok_in', 'sendbacks'],
+        "extra_th": '<li><b>ทดสอบจำลองความล้มเหลว (ไม่ใช้ API, eval/test_failure_offline.py):</b> call ล้มสุ่ม 10%: รันจบ 20/20 ผลเหมือนเดิม · model หลักล่มทั้งหมด: model สำรองตอบครบทุก call · ล้มกลางทางแล้วรันใหม่: ตรวจเฉพาะกฎที่ค้าง (5 call แทน 21) ผลเท่ารอบปกติ · งบ context: ตัดผลค้นเก่าเป็นป้ายที่เก็บรหัส passage ไว้ อ่านซ้ำได้ ผลล่าสุดไม่ถูกตัด</li><li><b>ปรับระหว่างสร้าง (ลองกับ API จริง 1 ฉบับ):</b> แบบแรกตัดผลค้นทันทีหลัง 1 รอบ ทำให้ agent ค้นซ้ำเพื่อเทียบตัวเลือก (43 call เทียบ V4 35–37) จึงเก็บผล 2 รอบล่าสุดไว้เต็ม: 37 call · token ขาเข้าลดราว 13% บนฉบับเดียวกัน</li>',
+        "mode": 'A1',
+        "commit": 'c67330f',
+        "name_th": 'V4 + งบ context · บอกส่วนที่ต้องอ่านเร็วขึ้น · model สำรอง · บันทึกผลทีละกฎ (harness สุดท้าย)',
+        "change_th": 'งบ context (ตัดผลค้นเก่าเป็นป้าย) · บอกส่วนที่ต้องอ่านตั้งแต่การค้นแรกที่ไม่เจอใหม่ · model สำรอง · บันทึกผลทีละกฎ ทำต่อได้ · error ของ tool รูปแบบเดียว',
+        "concept": 'Context budget (EP07) · loop detection, graceful failure, checkpoint (EP08)',
+        "steps_th": ['เหมือน V4 ภายในแต่ละกฎ และตรวจกฎพร้อมกัน', 'ก่อนทุก call: ผลค้นที่เก่ากว่า 2 รอบล่าสุดถูกแทนด้วยป้ายสั้นที่เก็บรหัส passage · ถ้ายังเกินงบ (16,000 ตัวอักษร) ข้อความที่อ่านเก่าสุดถูกแทนด้วยป้าย และอ่านซ้ำได้', 'การค้นครั้งแรกที่ไม่เจอส่วนใหม่: บอกทันทีว่าต้องอ่านส่วนไหนก่อนตอบว่าไม่มีข้อนี้ (V3–V4 รอให้ไม่เจอ 2 ครั้งติด)', 'call ล้ม: retry แบบสุ่มช่วงรอ 2 ครั้ง แล้วส่งคำขอเดียวกันไป model สำรอง · บันทึกว่า model ไหนตอบทุก call', 'แอป: บันทึกผลทุกกฎลงไฟล์ทันทีที่เสร็จ ถ้าหยุดกลางทาง กดวิเคราะห์ใหม่จะตรวจเฉพาะกฎที่เหลือ · ลบไฟล์เมื่อรายงานเสร็จ', 'error ของ tool ทุกแบบใช้รูปแบบเดียว: ปัญหาคืออะไร + ทำอะไรต่อ · คำอธิบาย tool บอกวิธีใช้ชัดขึ้น'],
+        "steps": ['As V4 (sectioning, progress guard, verifier, <contract_data> wrapper).', 'Before every call: search results older than the last 2 tool turns become a stub that keeps the passage ids; if the conversation is still over 16,000 characters, the oldest full reads become stubs too (they can be read again).', 'The first search that returns nothing new already names the passages the verifier needs (V3-V4 waited for two in a row).', 'A failing call is retried twice with jittered backoff, then the same request goes to FALLBACK_MODEL; every call records which model answered.', 'App: each finished rule is saved at once; running the review again after a failure checks only the remaining rules. Saved files are deleted when the report is done.', 'Tool errors share one format (problem + what to do next); tool descriptions say how to use them.'],
+    },
 }
 
 # Planned versions: same card layout, no commit and no results yet. "target" = metrics that decide if it is kept.
 PLANNED = {
-    "V5": {
-        "weakness_th": 'ต้นทุน: input token ของ agent ราว 7.9 เท่าของ single call เพราะผลค้นเก่าทั้งหมดถูกส่งซ้ำทุก call และคำแนะนำของตัวจับการค้นอาจมาช้าไป (V3 รอบเดียววันที่ 20 พ.ย. ตีกลับเพิ่มจาก 9 เป็น 12) · ความทนทาน: การตรวจหนึ่งฉบับเป็นงานก้อนเดียว ถ้า API ล่มกลางทาง ผลของกฎที่เสร็จแล้วหายทั้งหมด · พบจริง: 14 พ.ย. API overload จนเวลาต่อฉบับขึ้นเป็น 130 วิ และรอบทดสอบ 21 พ.ย. หยุดกลางทาง ต้องรันใหม่ทั้งรอบ',
-        "name_th": "V4 + งบ context · บอกส่วนที่ต้องอ่านเร็วขึ้น · model สำรอง · บันทึกผลทีละกฎ (harness สุดท้าย)",
-        "concept": "Context budget (EP07) · loop detection, graceful failure, checkpoint (EP08)",
-        "flow": [("PDF → ส่วนย่อย + ดัชนีค้นหา", ""), ("ตรวจทุกกฎพร้อมกัน (sectioning)", ""),
-                 ("เรียก AI: ล้ม → retry แบบสุ่มช่วงรอ → model สำรอง (บันทึกว่า model ไหนตอบ)", "new"),
-                 ("AI เลือก tool: search / read", ""),
-                 ("ตัวจับการค้นไม่คืบหน้า · บอกส่วนที่ต้องอ่านเร็วขึ้น", "chg"),
-                 ("งบ context: นับ token ก่อนส่ง · ตัดผลค้นเก่าที่ไม่ใช้ออก", "new"),
-                 ("ผล tool ห่อใน <contract_data>", ""), ("submit_finding → ตัวตรวจซ้ำ (โค้ด) · ตีกลับ ≤ 2 ครั้ง", ""),
-                 ("บันทึกผลทุกกฎลงไฟล์ทันที · รันใหม่ข้ามกฎที่เสร็จแล้ว", "new"), ("สรุปผู้บริหาร", "")],
-        "why_th": "ตัดผลค้นเก่าที่ไม่ใช้ควรลดต้นทุน · บอกส่วนที่ตัวตรวจซ้ำต้องการตั้งแต่การค้นครั้งแรกที่ไม่เจอส่วนใหม่ควรลดการตีกลับ · model สำรองและ checkpoint ทำให้ตรวจจนจบได้แม้ API ล่ม และไม่จ่ายซ้ำกฎที่เสร็จแล้ว · "
-                  "รวมเป็นเวอร์ชันเดียวได้โดยยังแยกผลได้: model สำรองและ checkpoint ทำงานเฉพาะเมื่อ call ล้ม รอบปกติจึงไม่เปลี่ยน ต้นทุนและจำนวน call ที่เปลี่ยนมาจากงบ context · ส่วนความทนทานวัดแยกด้วยการจำลอง API ล่ม · ถ้า model สำรองตอบในรอบทดสอบ จะรายงานแยก",
-        "target": ["thb", "sendbacks"],
-    },
     "V6": {
         "weakness_th": 'tool ค้นได้แค่ข้อความใกล้คำค้น ตามไปอ่าน Exhibit หรือข้อที่ถูกอ้างถึงไม่ได้ ซึ่งจะเป็นปัญหาในสัญญายาว · ผลแต่ละกฎตัดสินแยกกัน ไม่มีขั้นที่ตรวจว่าผลข้อหนึ่งขัดกับอีกข้อ',
         "name_th": "V5 + tool ตามอ้างอิง · ตรวจข้อขัดกันข้ามข้อ (ส่วนขยายสำหรับสัญญายาว)",

@@ -25,6 +25,7 @@ COLS = [("มี/ไม่มีถูก (จาก 24)", "presence", "{:.1f}")
         ("สรุปทวนข้อความหลอก (จาก 3)", "claim_B", "{:.1f}"), ("call เฉลี่ย/กฎ", "steps", "{:.1f}"),
         ("ใช้ครบ 10 call (จาก 30)", "budget_hits", "{:.1f}"), ("ตัวตรวจซ้ำตีกลับ", "sendbacks", "{:.1f}"),
         ("เรียก tool ซ้ำตรงตัว", "repeats", "{:.1f}"), ("เวลา/ฉบับ (วิ)", "sec", "{:.0f}"), ("ต้นทุน/ฉบับ (บาท)", "thb", "{:.2f}"),
+        ("token ขาเข้า/ฉบับ (พัน)", "tok_in", "{:.1f}"), ("call ที่ model สำรองตอบ", "fallback", "{:.0f}"),
         ("คำอธิบายปัญหายึดสัญญา (faithfulness)", "faith_issue", "{:.0%}"), ("บทสรุปยึดผลรายข้อ (faithfulness)", "faith_summary", "{:.0%}"),
         ("คำอธิบายยึดสัญญา เฉพาะข้อเท็จจริง", "faith_issue_fact", "{:.0%}"), ("บทสรุปยึดผล เฉพาะข้อเท็จจริง", "faith_summary_fact", "{:.0%}"),
         ("บทสรุปขัดผลตัดสินของโค้ด (จาก 6)", "summary_bad", "{:.1f}"), ("tool error ต่อ call", "tool_err", "{:.1%}")]
@@ -41,7 +42,7 @@ def cell(r, col, fmt):
 def row(vid, r):
     v = VERSIONS[vid]
     cells = [cell(r, c, f) for _, c, f in COLS]
-    cells[-1] += f"<br><span class='small'>(${r['usd']:.4f})</span>"
+    cells[[c for _, c, _ in COLS].index("thb")] += f"<br><span class='small'>(${r['usd']:.4f})</span>"
     return [f"<b>{vid}</b>", f"<b>{escape(v['name_th'])}</b><br><span class='small'>{escape(v['change_th'])}</span>",
             escape(v["concept"]), *cells, f"{int(r['verdict_changed'])}/{int(r['pairs'])}",
             f"{int(r['runs'])}/{RUNS}", f"<code>{v['commit']}</code>"]
