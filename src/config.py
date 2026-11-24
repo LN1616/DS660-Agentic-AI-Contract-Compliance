@@ -43,10 +43,10 @@ def release_name() -> str:
     extra = [name for on, name in ((V6_TOOLS, "V6 tools"), (CROSS_CHECK, "cross-check"), (V7_MISSING_PROMPT, "V7 prompt")) if on]
     return "V5 + H" + ("".join(f" + {e}" for e in extra))
 
-# Package H (EP01 builder's dials). While measuring, a fallback model would mix two models into one run (EP01 "lock
+# Package H (model-call settings). While measuring, a fallback model would mix two models into one run ("lock
 # the provider"): eval.run_versions sets EVAL_NO_FALLBACK=1. The app keeps the fallback.
 EVAL_NO_FALLBACK = os.getenv("EVAL_NO_FALLBACK") == "1"
-# What each model family accepts and how big its input window is (EP01 "check modality before sending").
+# What each model family accepts and how big its input window is ("check modality before sending").
 # First matching prefix wins. An unknown model is treated as text-only with a small window, so a model swap
 # (package F) fails safe: the single call sends extracted text instead of the PDF, scanned pages are skipped with a note.
 MODEL_CAPS = [

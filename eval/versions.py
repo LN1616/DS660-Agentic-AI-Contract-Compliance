@@ -16,7 +16,7 @@ COMMITS = {
 
 VERSIONS = {
     "SC1": {
-        "weakness_th": 'ไม่ใช่การแก้ แต่เป็นจุดตั้งต้น: เริ่มจากแบบที่ง่ายที่สุดก่อนตามหลักของรายวิชา (EP06) แล้วใช้เป็นเกณฑ์เทียบว่าการเพิ่มความซับซ้อนแต่ละขั้นคุ้มหรือไม่',
+        "weakness_th": 'ไม่ใช่การแก้ แต่เป็นจุดตั้งต้น: เริ่มจากแบบที่ง่ายที่สุดก่อน (start simple) แล้วใช้เป็นเกณฑ์เทียบว่าการเพิ่มความซับซ้อนแต่ละขั้นคุ้มหรือไม่',
         "prev": None,
         "flow": [('PDF → ข้อความ (ใช้ตรวจ quote)', 'new'), ('ส่ง PDF ทั้งฉบับ + กฎ 5 ข้อ', 'new'), ('AI 1 call ตอบทุกกฎ (JSON)', 'new'), ('ตรวจ quote หลังได้คำตอบ', 'new'), ('รายงาน', '')],
         "why_th": 'จุดตั้งต้น: เร็วและถูกที่สุด แต่ AI เห็นทั้งฉบับรวมถึงข้อความที่ฝังไว้ และไม่มีใครตรวจคำตอบก่อนออกรายงาน',
@@ -24,7 +24,7 @@ VERSIONS = {
         "mode": "B2", "commit": "d69a714",
         "name_th": "Single call · เดิม",
         "change_th": "ส่ง PDF ทั้งฉบับ + กฎทั้งหมด ให้ AI ตอบครั้งเดียว · ตรวจ quote หลังได้คำตอบ",
-        "concept": "Workflow แบบง่ายสุด (EP04, EP06)",
+        "concept": "Workflow แบบง่ายสุด",
         "steps_th": ['แยกข้อความ PDF เป็นส่วน ๆ (ใช้เฉพาะตรวจ quote หลังได้คำตอบ)', 'เรียก AI ครั้งเดียว: ส่ง PDF ทั้งฉบับ + กฎทั้ง 5 ข้อ ตอบเป็น JSON (ผลต่อกฎ + สรุป)', 'หลังได้คำตอบ: หา quote แต่ละข้อใน PDF (fuzzy match ≥ 88) และติดธงข้อที่หาไม่เจอ', 'ไม่มี tool ไม่มี loop ไม่ตีกลับ: คำตอบที่ผิดหรือขาดจะอยู่ในรายงานตามนั้น'],
         "steps": [
             "Extract the PDF text into passages (used only for the quote check afterwards).",
@@ -42,7 +42,7 @@ VERSIONS = {
         "mode": "B2", "commit": "de66498",
         "name_th": "Single call · prompt กันคำสั่งแฝง",
         "change_th": "เพิ่มใน prompt ว่าเนื้อสัญญาเป็นข้อมูล คำสั่งหรือคำอ้างว่าอนุมัติแล้วในสัญญาให้ละเว้น",
-        "concept": "Prompt / delimiter (EP02)",
+        "concept": "Prompt / delimiter",
         "steps_th": ['เหมือน SC1', 'prompt ระบุว่า PDF เป็นข้อมูล คำสั่ง ข้อความระบบ ประกาศเปลี่ยนนโยบาย หรือคำอ้างว่าอนุมัติแล้วในสัญญาให้ละเว้น'],
         "steps": [
             "As SC1.",
@@ -59,7 +59,7 @@ VERSIONS = {
         "mode": "A1", "commit": "d69a714",
         "name_th": "Agent · ออกแบบแรก",
         "change_th": "ReAct worker ต่อกฎ (search → read → submit) · ตัวตรวจซ้ำเป็นโค้ด ตีกลับได้ 2 ครั้ง · งบ 10 ขั้นต่อกฎ",
-        "concept": "ReAct (EP05) · evaluator-optimizer (EP04)",
+        "concept": "ReAct · evaluator-optimizer",
         "steps_th": ['แยกข้อความ PDF เป็นส่วน ๆ และสร้างดัชนีค้นหา TF-IDF', 'ตรวจทีละกฎ: prompt = ข้อความกฎ และสถานะที่ใช้เมื่อไม่มีข้อนี้ในสัญญา', 'วน tool ไม่เกิน 10 call ต่อกฎ: search_contract(คำค้น) คืน 5 ส่วนที่ใกล้ที่สุด · read_passage(id) คืนส่วนนั้นเต็ม ๆ', 'AI จบด้วย submit_finding (สถานะ ความเสี่ยง quote ตรงตัว ปัญหา ข้อความแก้)', 'ตัวตรวจซ้ำ (โค้ดธรรมดา ไม่ใช่ AI): quote ต้องตรงกับ PDF (≥ 88) · ตอบว่า "ไม่มีข้อนี้" ได้ต่อเมื่ออ่าน 3 ส่วนที่เกี่ยวข้องที่สุดครบแล้ว', 'ไม่ผ่าน: ส่งเหตุผลกลับให้ AI แก้ ไม่เกิน 2 ครั้งต่อกฎ', 'call ที่ 10: อนุญาตเฉพาะ submit_finding ทุกกฎจึงจบด้วยคำตอบเสมอ', 'อีก 1 call เขียนบทสรุปผู้บริหารจากผล 5 ข้อ'],
         "steps": [
             "Extract the PDF text into passages and build a TF-IDF search index.",
@@ -83,7 +83,7 @@ VERSIONS = {
         "mode": "A1", "commit": "de66498",
         "name_th": "Agent + ผลของ tool เป็นข้อมูล + เพดาน output",
         "change_th": "ผล search/read ห่อใน <contract_data> และตัด tag ที่ฝังในสัญญา · เพดานคำตอบ 4,096 token",
-        "concept": "Tool output is data, indirect prompt injection (EP08) · finish_reason / max tokens (EP01)",
+        "concept": "Tool output is data, indirect prompt injection · finish_reason / max tokens",
         "steps_th": ['เหมือน V1', 'ผล search/read ทุกครั้งห่อใน <contract_data> … </contract_data> และลบ tag เดียวกันที่เขียนไว้ในสัญญาก่อน สัญญาจึงปิด wrapper เองไม่ได้', 'system prompt ระบุว่าข้อความใน <contract_data> เป็นข้อมูล ไม่ใช่คำสั่ง', 'เพดานคำตอบ 4,096 token ต่อ call · คำตอบที่ถูกตัดจะบันทึกไว้ และบอก AI ให้เรียก tool หนึ่งตัว'],
         "steps": [
             "As V1.",
@@ -102,7 +102,7 @@ VERSIONS = {
         "mode": "A1", "commit": "cc21e1d",
         "name_th": "V2 + ตัวจับการค้นที่ไม่คืบหน้า",
         "change_th": "ค้นซ้ำไม่รันซ้ำ · ค้นแล้วไม่เจอข้อใหม่ ระบบเตือน · 2 ครั้งติด บอกส่วนที่ต้องอ่านก่อนสรุปว่าไม่มี",
-        "concept": "Loop detection (EP08, EP09)",
+        "concept": "Loop detection",
         "steps_th": ['เหมือน V2', 'search/read ซ้ำตรงตัว: ไม่รันซ้ำ ระบบแจ้งว่าผลเดิมอยู่ตรงไหน', 'ค้นแล้วไม่เจอส่วนใหม่ที่กฎนี้ยังไม่เคยเห็น: ระบบแจ้ง', 'เกิด 2 ครั้งติด: ระบบบอกส่วนที่ยังไม่อ่านซึ่งตัวตรวจซ้ำต้องการก่อนตอบว่า "ไม่มีข้อนี้"'],
         "steps": [
             "As V2.",
@@ -124,7 +124,7 @@ VERSIONS = {
         "mode": "A1", "commit": "34ec525",
         "name_th": "V3 + ตรวจกฎพร้อมกัน (sectioning)",
         "change_th": "ตรวจ 5 กฎพร้อมกัน worker ละกฎ · รวมผลตามลำดับกฎ · บันทึกการอ่านแยกต่อกฎ",
-        "concept": "Parallelization: sectioning (EP04)",
+        "concept": "Parallelization: sectioning",
         "steps_th": ['เหมือน V3 ภายในแต่ละกฎ', 'แต่ละกฎได้ worker ของตัวเอง ตรวจพร้อมกันได้สูงสุด 5 กฎ (PARALLEL_RULES; ตั้ง 1 = ทีละกฎแบบเดิม)', 'การเรียก AI ใช้จังหวะร่วมกัน: เริ่ม call ห่างกันอย่างน้อย MIN_CALL_GAP วินาที ส่วนการรอคำตอบทำพร้อมกันได้', 'ตัวตรวจซ้ำนับเฉพาะส่วนที่กฎนี้อ่านเต็มแล้ว ก่อนยอมให้ตอบว่า "ไม่มีข้อนี้"', 'ผลเรียงตามลำดับกฎเสมอ แม้กฎจะเสร็จไม่พร้อมกัน แล้วจึงเขียนบทสรุปผู้บริหาร'],
         "steps": [
             "As V3 inside each rule.",
@@ -140,12 +140,12 @@ VERSIONS = {
         "flow": [('PDF → ส่วนย่อย + ดัชนีค้นหา', ''), ('ตรวจทุกกฎพร้อมกัน (sectioning)', ''), ('เรียก AI: ล้ม → retry แบบสุ่มช่วงรอ → model สำรอง (บันทึกว่า model ไหนตอบ)', 'new'), ('AI เลือก tool: search / read', ''), ('ตัวจับการค้นไม่คืบหน้า · บอกส่วนที่ต้องอ่านเร็วขึ้น', 'chg'), ('งบ context: นับ token ก่อนส่ง · ตัดผลค้นเก่าที่ไม่ใช้ออก', 'new'), ('ผล tool ห่อใน <contract_data>', ''), ('submit_finding → ตัวตรวจซ้ำ (โค้ด) · ตีกลับ ≤ 2 ครั้ง', ''), ('บันทึกผลทุกกฎลงไฟล์ทันที · รันใหม่ข้ามกฎที่เสร็จแล้ว', 'new'), ('สรุปผู้บริหาร', '')],
         "why_th": 'ตัดผลค้นเก่าที่ไม่ใช้ควรลดต้นทุน · บอกส่วนที่ตัวตรวจซ้ำต้องการตั้งแต่การค้นครั้งแรกที่ไม่เจอส่วนใหม่ควรลดการตีกลับ · model สำรองและ checkpoint ทำให้ตรวจจนจบได้แม้ API ล่ม และไม่จ่ายซ้ำกฎที่เสร็จแล้ว · รวมเป็นเวอร์ชันเดียวได้โดยยังแยกผลได้: model สำรองและ checkpoint ทำงานเฉพาะเมื่อ call ล้ม รอบปกติจึงไม่เปลี่ยน ต้นทุนและจำนวน call ที่เปลี่ยนมาจากงบ context · ส่วนความทนทานวัดแยกด้วยการจำลอง API ล่ม · ถ้า model สำรองตอบในรอบทดสอบ จะรายงานแยก',
         "target": ['thb', 'tok_in', 'sendbacks'],
-        "extra_th": '<li><b>สรุปผล 3 รอบ (21 พ.ย.):</b> token ขาเข้า 55.7 → 50.0 พันต่อฉบับ (−10%) · ต้นทุน 0.75 → 0.68 บาท (−9%) · ตีกลับ 8.3 → 6.3 ครั้ง ทั้งสามข้อดีขึ้นชัดเจน · มี/ไม่มีถูก 22 → 21 (ช่วงซ้อนกัน อยู่ในความแปรปรวน) · ถูกหลอก 0 · เวลาเท่าเดิม 32 วิ (ติดเพดานการเว้นจังหวะ) · model สำรองไม่ต้องใช้เลย (0 call) · faithfulness ไม่ลดลง</li><li><b>ทดสอบจำลองความล้มเหลว (ไม่ใช้ API, eval/test_failure_offline.py):</b> call ล้มสุ่ม 10%: รันจบ 20/20 ผลเหมือนเดิม · model หลักล่มทั้งหมด: model สำรองตอบครบทุก call · ล้มกลางทางแล้วรันใหม่: ตรวจเฉพาะกฎที่ค้าง (5 call แทน 21) ผลเท่ารอบปกติ · งบ context: ตัดผลค้นเก่าเป็นป้ายที่เก็บรหัส passage ไว้ อ่านซ้ำได้ ผลล่าสุดไม่ถูกตัด</li><li><b>ปรับระหว่างสร้าง (ลองกับ API จริง 1 ฉบับ):</b> แบบแรกตัดผลค้นทันทีหลัง 1 รอบ ทำให้ agent ค้นซ้ำเพื่อเทียบตัวเลือก (43 call เทียบ V4 35–37) จึงเก็บผล 2 รอบล่าสุดไว้เต็ม: 37 call · token ขาเข้าลดราว 13% บนฉบับเดียวกัน</li>',
+        "extra_th": '<li><b>สรุปผล 3 รอบ (21 พ.ย.):</b> token ขาเข้า 55.7 → 50.0 พันต่อฉบับ (−10%) · ต้นทุน 0.75 → 0.68 บาท (−9%) · ตีกลับ 8.3 → 6.3 ครั้ง ทั้งสามข้อดีขึ้นชัดเจน · มี/ไม่มีถูก 22 → 21 (ช่วงซ้อนกัน อยู่ในความแปรปรวน) · ถูกหลอก 0 · เวลาเท่าเดิม 32 วิ (ติดเพดานการเว้นจังหวะ) · model สำรองไม่ต้องใช้เลย (0 call)</li><li><b>ทดสอบจำลองความล้มเหลว (ไม่ใช้ API, eval/test_failure_offline.py):</b> call ล้มสุ่ม 10%: รันจบ 20/20 ผลเหมือนเดิม · model หลักล่มทั้งหมด: model สำรองตอบครบทุก call · ล้มกลางทางแล้วรันใหม่: ตรวจเฉพาะกฎที่ค้าง (5 call แทน 21) ผลเท่ารอบปกติ · งบ context: ตัดผลค้นเก่าเป็นป้ายที่เก็บรหัส passage ไว้ อ่านซ้ำได้ ผลล่าสุดไม่ถูกตัด</li><li><b>ปรับระหว่างสร้าง (ลองกับ API จริง 1 ฉบับ):</b> แบบแรกตัดผลค้นทันทีหลัง 1 รอบ ทำให้ agent ค้นซ้ำเพื่อเทียบตัวเลือก (43 call เทียบ V4 35–37) จึงเก็บผล 2 รอบล่าสุดไว้เต็ม: 37 call · token ขาเข้าลดราว 13% บนฉบับเดียวกัน</li>',
         "mode": 'A1',
         "commit": 'c67330f',
         "name_th": 'V4 + งบ context · บอกส่วนที่ต้องอ่านเร็วขึ้น · model สำรอง · บันทึกผลทีละกฎ (harness สุดท้าย)',
         "change_th": 'งบ context (ตัดผลค้นเก่าเป็นป้าย) · บอกส่วนที่ต้องอ่านตั้งแต่การค้นแรกที่ไม่เจอใหม่ · model สำรอง · บันทึกผลทีละกฎ ทำต่อได้ · error ของ tool รูปแบบเดียว',
-        "concept": 'Context budget (EP07) · loop detection, graceful failure, checkpoint (EP08)',
+        "concept": 'Context budget · loop detection, graceful failure, checkpoint',
         "steps_th": ['เหมือน V4 ภายในแต่ละกฎ และตรวจกฎพร้อมกัน', 'ก่อนทุก call: ผลค้นที่เก่ากว่า 2 รอบล่าสุดถูกแทนด้วยป้ายสั้นที่เก็บรหัส passage · ถ้ายังเกินงบ (16,000 ตัวอักษร) ข้อความที่อ่านเก่าสุดถูกแทนด้วยป้าย และอ่านซ้ำได้', 'การค้นครั้งแรกที่ไม่เจอส่วนใหม่: บอกทันทีว่าต้องอ่านส่วนไหนก่อนตอบว่าไม่มีข้อนี้ (V3–V4 รอให้ไม่เจอ 2 ครั้งติด)', 'call ล้ม: retry แบบสุ่มช่วงรอ 2 ครั้ง แล้วส่งคำขอเดียวกันไป model สำรอง · บันทึกว่า model ไหนตอบทุก call', 'แอป: บันทึกผลทุกกฎลงไฟล์ทันทีที่เสร็จ ถ้าหยุดกลางทาง กดวิเคราะห์ใหม่จะตรวจเฉพาะกฎที่เหลือ · ลบไฟล์เมื่อรายงานเสร็จ', 'error ของ tool ทุกแบบใช้รูปแบบเดียว: ปัญหาคืออะไร + ทำอะไรต่อ · คำอธิบาย tool บอกวิธีใช้ชัดขึ้น'],
         "steps": ['As V4 (sectioning, progress guard, verifier, <contract_data> wrapper).', 'Before every call: search results older than the last 2 tool turns become a stub that keeps the passage ids; if the conversation is still over 16,000 characters, the oldest full reads become stubs too (they can be read again).', 'The first search that returns nothing new already names the passages the verifier needs (V3-V4 waited for two in a row).', 'A failing call is retried twice with jittered backoff, then the same request goes to FALLBACK_MODEL; every call records which model answered.', 'App: each finished rule is saved at once; running the review again after a failure checks only the remaining rules. Saved files are deleted when the report is done.', 'Tool errors share one format (problem + what to do next); tool descriptions say how to use them.'],
     },
@@ -160,7 +160,7 @@ VERSIONS = {
         "commit": 'e0a1dcc',
         "name_th": 'V5 + ตามไปส่วนที่ถูกอ้าง · หาศัพท์นิยาม · ค้นหน้า 2 · ตรวจข้อขัดกันข้ามข้อ',
         "change_th": 'tool ใหม่ follow_reference และ lookup_definition · search_contract ขอผลอันดับ 6–10 ได้ · ดัชนีเลขข้อ ภาคผนวก และศัพท์นิยาม (โค้ด) · cross-check reviewer หลังตรวจครบ (AI 1 call)',
-        "concept": 'Tool design / ACI (EP04, EP06) · long-context retrieval (EP07) · reflection on all findings (EP05)',
+        "concept": 'Tool design / ACI · long-context retrieval · reflection on all findings',
         "steps_th": ['เหมือน V5 ทั้งหมด (sectioning, งบ context, model สำรอง, บันทึกผลทีละกฎ)', 'ตอนอ่านสัญญา โค้ดสร้างดัชนีเพิ่ม: เลขข้อ → passage · หัวเรื่องภาคผนวก (EXHIBIT / SCHEDULE / APPENDIX) → passage · ศัพท์นิยาม ("X" means ...) → passage', "follow_reference('Article 9.3' / 'Exhibit B') เปิดส่วนนั้นเต็ม · 'Exhibit H-8' (เลขหน้าในภาคผนวก) ย้อนไปที่ Exhibit H", "lookup_definition('Net Sales') เปิด passage ที่นิยามศัพท์ · ตรงตัวก่อน แล้วจึงใกล้เคียง ≥ 85", 'search_contract(page=2) คืนผลอันดับ 6–10', "ส่วนที่เปิดด้วย tool ใหม่นับเป็น 'อ่านแล้ว' ในตัวตรวจซ้ำ และอยู่ใต้งบ context เหมือน read_passage", 'หลังตรวจครบทุกกฎ: AI 1 call อ่านผลทุกข้อพร้อมกัน หาคู่ที่ขัดกัน · โค้ดเก็บเฉพาะข้อสังเกตที่อ้างผลจริงอย่างน้อย 2 ข้อ · แสดงให้คนดู ไม่เปลี่ยนผลตัดสิน'],
         "steps": ['As V5 (sectioning, context budget, fallback model, per-rule checkpoint).', 'At load, plain code indexes section numbers, attachment headings (EXHIBIT / SCHEDULE / APPENDIX / ANNEX) and defined terms ("X" means ...).', "follow_reference('Article 9.3' / 'Exhibit B') opens that part in full; 'Exhibit H-8' (a page label) falls back to Exhibit H.", "lookup_definition('Net Sales') opens the passage that defines the term (exact, then closest match >= 85).", 'search_contract(page=2) returns results ranked 6-10.', 'Passages opened by the new tools count as read for the verifier and fall under the context budget like read_passage.', 'After all rules: one cross-check call lists contradictions between findings; code keeps a note only if it cites at least two existing findings. Notes are shown to people and never change a verdict.'],
     },
@@ -175,7 +175,7 @@ VERSIONS = {
         "commit": 'e100ccf',
         "name_th": 'V6 + ขอบเขตของ MISSING ชัดขึ้น · งบ call 10 ทุกสัญญา',
         "change_th": 'prompt ของ agent: MISSING ใช้เมื่อไม่มีข้อเรื่องนั้นเลยเท่านั้น ข้อที่แคบกว่ากฎ เขียนต่างไป หรือให้อีกฝ่ายรับภาระ ต้องตัดสินเป็น COMPLIANT / DEVIATED / VIOLATED · อ่านกฎให้จบ ถ้ากฎกำหนดสถานะของกรณีใดไว้ ใช้สถานะนั้น',
-        "concept": 'Prompt engineering / clear task definition (EP02) · error analysis ก่อนแก้ (EP08)',
+        "concept": 'Prompt engineering / clear task definition · error analysis ก่อนแก้',
         "steps_th": ['เหมือน V6 ทั้งหมด (tool ตามอ้างอิง หาศัพท์นิยาม ค้นหน้า 2 cross-check)', 'prompt เพิ่ม 2 บรรทัด: MISSING = ไม่มีข้อเรื่องนี้เลย · ข้อที่แคบกว่า / ให้อีกฝ่ายรับภาระ ต้องตัดสินเป็นสถานะอื่น', 'อ่านกฎให้จบ: ถ้ากฎระบุสถานะของกรณีใดไว้ ใช้สถานะนั้น', 'งบ call 10 ทุกสัญญา (ปิดงบตามความยาว)'],
         "steps": ['As V6 (follow_reference, lookup_definition, search page 2, cross-check).', 'Prompt: MISSING only when the contract has no clause on the topic; a narrower clause, other wording, or an obligation on the other party is judged COMPLIANT / DEVIATED / VIOLATED.', 'Read the rule to the end: when it names the status for a situation, use it.', 'Call budget 10 for every contract (length-scaled budget off).'],
     },

@@ -1,7 +1,6 @@
 # Prompt and model-call design
 
-Why the prompts and model calls look the way they do. Course references: EP01 (how LLMs work, Table 1.5 builder's
-dials) and EP02 (prompts, structured output, hallucination). Measured numbers come from `docs/EVALUATION.md` and
+Why the prompts and model calls look the way they do. Measured numbers come from `docs/EVALUATION.md` and
 `outputs/versions/`.
 
 ## 1. Prompt structure
@@ -45,22 +44,21 @@ All schemas are Pydantic models (`src/schemas.py`). Validation failures are not 
 * Single call (package H): rules without a valid finding are asked for again once, with the validation problems.
 * Cross-check: an unreadable answer gives no notes (and a `finish_reason` event in the trace) instead of a crash.
 
-## 4. Hallucination: what we measure (EP02 three types)
+## 4. Hallucination: what we measure
 
-| EP02 type | Meaning | How we catch it | Metric |
+| Type | Meaning | How we catch it | Metric |
 |---|---|---|---|
 | Extrinsic | Adds information that is not in the source | Every finding must quote the contract; code finds the quote in the PDF (rapidfuzz ≥ 88) and it must come from a passage the agent opened | `quote_real` (agent 100% in every version) |
 | Intrinsic | Contradicts the source | Quote must land on the clause CUAD's experts marked; cross-check reviewer flags findings that contradict each other | `quote_gold` · cross-check notes |
-| Faithfulness | Does not follow the document or the instructions | Claim-by-claim check of issue descriptions and the executive summary against their context (adapted from RAGAS); code checks the summary's rule statuses against the findings | `faith_issue` · `faith_summary` · `summary_bad` |
 
-Detection methods from EP02:
+Detection methods:
 
 * **Self-consistency (asking again):** used for evaluation, not at run time. Every version runs 3 times and we count
   verdicts that change between runs. Running every contract 3 times in the app would triple the cost.
 * **Token log-probabilities:** not used. A confident token does not tell whether a quote sits on the right clause;
   the code check answers that question directly.
 
-## 5. Model-call dials (EP01 Table 1.5)
+## 5. Model-call settings
 
 | Dial | Setting |
 |---|---|

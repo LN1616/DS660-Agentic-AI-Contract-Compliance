@@ -110,7 +110,7 @@ that are off by default (set to `1` in `.env` to turn on):
 | `CROSS_CHECK` | one extra call that lists contradictions between findings | caught 9/10 planted contradictions on saved reports |
 | `V7_MISSING_PROMPT` | stricter wording of when a clause counts as MISSING | 21.3/24, fixed one long-contract cell and broke one short-contract cell |
 
-Prompt and model-call design (zero-shot, structured output, hallucination checks, EP01 dials): [docs/PROMPT_DESIGN.md](docs/PROMPT_DESIGN.md).
+Prompt and model-call design (zero-shot, structured output, hallucination checks, model-call settings): [docs/PROMPT_DESIGN.md](docs/PROMPT_DESIGN.md).
 
 ## Results (3 runs per version, gemini-3.5-flash-lite)
 

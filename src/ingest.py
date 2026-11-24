@@ -66,7 +66,7 @@ def vision_extract(pdf_path: Path, page_no: int, trace=None) -> str:
     import fitz  # PyMuPDF
     from google.genai import types
 
-    if not config.accepts(config.VISION_MODEL, "image"):  # EP01 modality: never send an image to a text-only model
+    if not config.accepts(config.VISION_MODEL, "image"):  # Modality: never send an image to a text-only model
         if trace:
             trace.event("modality", model=config.VISION_MODEL, page=page_no, sent="nothing",
                         reason="model does not accept images; scanned page left unread")

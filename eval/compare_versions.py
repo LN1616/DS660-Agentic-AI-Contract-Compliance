@@ -10,13 +10,17 @@ Usage:  python -m eval.compare_versions
 import glob
 import json
 import os
-import re
+import sys
+from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
 
+from eval.cuad import pdf_path
 from eval.injection_test import SUMMARY_CLAIMS
 from eval.versions import COMMITS, VERSIONS
+from src.document import ContractDocument
+from src.ingest import extract_pages
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = Path(os.getenv("VERSIONS_OUT", ROOT / "outputs" / "versions"))
@@ -26,7 +30,6 @@ BUDGET = 10
 MIN_RUNS = 3  # a 'clear' verdict needs this many runs on both sides
 
 # name, column, how to show, higher is better?
-ADVICE = re.compile(r"ควร|ต้อง|แนะนำ|should|must|recommend", re.I)  # advice, not a factual claim
 METRICS = [
     ("Presence correct (of 24)", "presence", "{:.1f}", True),
     ("Quotes found in PDF", "quote_real", "{:.0%}", True),
@@ -42,11 +45,6 @@ METRICS = [
     ("Baht per contract", "thb", "{:.2f}", False),
     ("Input tokens per contract (thousands)", "tok_in", "{:.1f}", False),
     ("Calls answered by the fallback model", "fallback", "{:.0f}", False),
-    ("Issue text faithful to the contract (claims supported)", "faith_issue", "{:.0%}", True),
-    ("Summary faithful to the findings (claims supported)", "faith_summary", "{:.0%}", True),
-    ("Issue text faithful, facts only (advice removed)", "faith_issue_fact", "{:.0%}", True),
-    ("Summary faithful, facts only (advice removed)", "faith_summary_fact", "{:.0%}", True),
-    ("Summaries contradicting the code verdict or naming unknown rules (of 6)", "summary_bad", "{:.1f}", False),
     ("Tool errors per tool call", "tool_err", "{:.1%}", False),
 ]
 
@@ -126,22 +124,33 @@ def score_run(vid: str, run_dir: Path) -> dict:
             seen = [norm_call(c) for c in calls.split("|") if c and not c.startswith("submit_finding")]
             reps += len(seen) - len(set(seen))
         out["repeats"] = reps
-    fj = run_dir / "faithfulness.json"   # package B, from eval.faithfulness (judge on the saved reports)
-    if fj.exists():
-        fd = json.load(open(fj, encoding="utf-8"))
-        for kind in ("issue", "summary"):
-            cl = [c for it in fd["items"] if it["system"] == v["mode"] and it["kind"] == kind for c in it["claims"]]
-            if cl:
-                out[f"faith_{kind}"] = sum(c["supported"] for c in cl) / len(cl)
-            fact = [c for c in cl if not ADVICE.search(c["claim"])]   # the judge kept some advice as "claims"
-            if fact:
-                out[f"faith_{kind}_fact"] = sum(c["supported"] for c in fact) / len(fact)
-        out["summary_bad"] = sum(c["contradicts"] or bool(c["unknown_ids"])
-                                 for c in fd["summary_checks"] if c["system"] == v["mode"])
-        te = fd["tool_errors"].get(v["mode"])
-        if v["mode"] == "A1" and te and te["calls"]:
-            out["tool_err"] = te["errors"] / te["calls"]
+        out["tool_err"] = tool_error_rate(run_dir)
     return out
+
+
+@lru_cache(maxsize=16)
+def doc_for(title: str) -> ContractDocument:
+    p = pdf_path(title + ".pdf")
+    long = Path("\\\\?\\" + str(p.resolve())) if sys.platform == "win32" else p
+    return ContractDocument(title, extract_pages(long, use_vision=False))
+
+
+def tool_error_rate(run_dir: Path):
+    """Agent tool errors per tool call: invalid submissions, answers cut by the output cap,
+    read_passage of a passage id that does not exist. None when the run has no trajectories."""
+    errs = calls = 0
+    for fp in sorted((run_dir / "eval_reports").glob("A1*.json")):
+        report = json.loads(fp.read_text(encoding="utf-8"))
+        ids = None
+        for r in report["findings"]:
+            for t in r.get("trajectory") or []:
+                calls += 1
+                if t.get("event") in ("invalid", "output_cut"):
+                    errs += 1
+                elif t.get("tool") == "read_passage":
+                    ids = ids if ids is not None else doc_for(report["contract_title"])._by_id
+                    errs += t.get("arg") not in ids
+    return errs / calls if calls else None
 
 
 def runs_of(vid: str):

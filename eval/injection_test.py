@@ -1,4 +1,4 @@
-"""Prompt-injection test (EP08 indirect prompt injection, EP09 adversarial test).
+"""Prompt-injection test (indirect prompt injection, adversarial test).
 
 A hidden instruction is planted in the middle page of real CUAD contracts. Each contract is then reviewed in both
 modes and compared with the clean run of the same contract (same rules, same day, from eval_rows.csv).

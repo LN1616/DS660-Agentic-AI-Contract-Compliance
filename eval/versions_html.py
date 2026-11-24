@@ -26,9 +26,7 @@ COLS = [("มี/ไม่มีถูก (จาก 24)", "presence", "{:.1f}")
         ("ใช้ครบ 10 call (จาก 30)", "budget_hits", "{:.1f}"), ("ตัวตรวจซ้ำตีกลับ", "sendbacks", "{:.1f}"),
         ("เรียก tool ซ้ำตรงตัว", "repeats", "{:.1f}"), ("เวลา/ฉบับ (วิ)", "sec", "{:.0f}"), ("ต้นทุน/ฉบับ (บาท)", "thb", "{:.2f}"),
         ("token ขาเข้า/ฉบับ (พัน)", "tok_in", "{:.1f}"), ("call ที่ model สำรองตอบ", "fallback", "{:.0f}"),
-        ("คำอธิบายปัญหายึดสัญญา (faithfulness)", "faith_issue", "{:.0%}"), ("บทสรุปยึดผลรายข้อ (faithfulness)", "faith_summary", "{:.0%}"),
-        ("คำอธิบายยึดสัญญา เฉพาะข้อเท็จจริง", "faith_issue_fact", "{:.0%}"), ("บทสรุปยึดผล เฉพาะข้อเท็จจริง", "faith_summary_fact", "{:.0%}"),
-        ("บทสรุปขัดผลตัดสินของโค้ด (จาก 6)", "summary_bad", "{:.1f}"), ("tool error ต่อ call", "tool_err", "{:.1%}")]
+        ("tool error ต่อ call", "tool_err", "{:.1%}")]
 
 
 def cell(r, col, fmt):
@@ -467,47 +465,6 @@ def long_summary():
             + "<br>".join(parts) + "<br>ผลรายข้อ: ตาราง \"สัญญายาว (ข้อ 22)\" ด้านบน</span>")
 
 
-def faith_block(sm):
-    """Package B results (eval/faithfulness.py on the saved reports of every run)."""
-    need = ["faith_issue", "faith_issue_fact", "faith_summary", "faith_summary_fact", "summary_bad"]
-    if not all(c in sm.columns for c in need):
-        return ""
-    def c(vid, col):
-        if vid not in sm.index or pd.isna(sm.loc[vid].get(col)):
-            return "–"
-        r = sm.loc[vid]
-        lo, hi = r[col + "_min"], r[col + "_max"]
-        f = "{:.0%}" if col != "summary_bad" else "{:.0f}"
-        return f.format(r[col]) + ("" if lo == hi else f"<br><span class='small'>{f.format(lo)}–{f.format(hi)}</span>")
-    rows = "".join(f"<tr><td><b>{vid}</b></td><td>{c(vid, 'faith_issue_fact')}</td><td>{c(vid, 'faith_issue')}</td>"
-                   f"<td>{c(vid, 'faith_summary_fact')}</td><td>{c(vid, 'faith_summary')}</td><td>{c(vid, 'summary_bad')}</td>"
-                   f"<td>{c(vid, 'tool_err') if 'tool_err' in sm.columns else '–'}</td></tr>" for vid in VERSIONS if vid in sm.index)
-    hc = (config.OUTPUT_DIR / "faithfulness_human_check.csv").exists()
-    from eval.flows_html import CSS, faith_flow
-    def rng(vids, col):
-        v = [sm.loc[k, col] for k in vids if k in sm.index and pd.notna(sm.loc[k].get(col))]
-        return f"{min(v):.0%}–{max(v):.0%}" if v else "–"
-    ag, sc = [k for k in VERSIONS if k.startswith("V")], [k for k in VERSIONS if k.startswith("SC")]
-    res = (f"<b>ผล (เฉพาะข้อเท็จจริง ค่าเฉลี่ยของแต่ละเวอร์ชัน):</b> คำอธิบายปัญหายึดสัญญา agent {rng(ag, 'faith_issue_fact')} · single call {rng(sc, 'faith_issue_fact')} · "
-           f"บทสรุปยึดผลรายข้อ agent {rng(ag, 'faith_summary_fact')} · single call {rng(sc, 'faith_summary_fact')} · "
-           f"บทสรุปที่ขัดผลตัดสินของโค้ด {int(sm['summary_bad'].fillna(0).sum())} ฉบับ · ยังเป็นค่าประมาณจนกว่าคนตรวจ 20 claim เสร็จ")
-    return CSS + faith_flow(res) + f"""<div class="fig" id="fig-faith">
-    <div class="fig-title"><h3>ชุดงาน B · ข้อความที่ AI เขียนยึดหลักฐานแค่ไหน (faithfulness)</h3><span class="small">eval/faithfulness.py · ใช้รายงานที่เก็บไว้ของทุกรอบ ไม่รัน agent ใหม่ · 3 รอบต่อเวอร์ชัน</span></div>
-    <div class="tbox"><table class="t"><thead><tr><th></th><th>คำอธิบายปัญหายึดสัญญา<br><span class='small'>เฉพาะข้อเท็จจริง</span></th><th>คำอธิบาย<br><span class='small'>ทุก claim</span></th>
-    <th>บทสรุปยึดผลรายข้อ<br><span class='small'>เฉพาะข้อเท็จจริง</span></th><th>บทสรุป<br><span class='small'>ทุก claim</span></th><th>บทสรุปขัดผลตัดสินของโค้ด<br><span class='small'>จาก 6</span></th><th>tool error ต่อ call</th></tr></thead>
-    <tbody>{rows}</tbody></table></div>
-    <ul class="small">
-      <li><b>วิธี:</b> AI ผู้ตรวจ (model เดียวกัน) แยกข้อความเป็น claim แล้วตัดสินทีละ claim ว่า context รองรับไหม · คะแนน = claim ที่รองรับ ÷ claim ทั้งหมด (แนวเดียวกับ RAGAS Faithfulness) ·
-        context ของคำอธิบาย = ข้อความกฎ + หน้าสัญญาที่มีข้อความที่อ้าง (ไม่มีข้อความอ้าง: 3 ส่วนที่เกี่ยวข้องที่สุด) · context ของบทสรุป = ผลรายข้อทั้งหมด · ต้นทุนผู้ตรวจทั้งชุดราว 12 บาท</li>
-      <li><b>"เฉพาะข้อเท็จจริง"</b> ตัด claim ที่เป็นคำแนะนำ (มีคำว่า ควร / ต้อง / แนะนำ) ออกด้วยโค้ด เพราะผู้ตรวจยังนับคำแนะนำเป็น claim ทั้งที่สั่งให้ตัดออก · รายงานทั้งสองแบบ</li>
-      <li><b>อ่านผล:</b> agent เขียนคำอธิบายยึดสัญญามากกว่า single call (ราว 90–93% เทียบ 81–85%) และบทสรุปของ agent ยึดผลรายข้อ 89–98% เทียบ single call 73–84% · ระหว่าง V1–V4 อยู่ในความแปรปรวนระหว่างรอบ ·
-        บทสรุปไม่มีฉบับใดขัดกับผลตัดสินการลงนามของโค้ด และไม่อ้างรหัสกฎที่ไม่มีอยู่ · tool error ของ V3–V4 เป็น 0 (V1–V2 ไม่มีบันทึกเส้นทางให้นับ)</li>
-      <li><b>ยังเชื่อตัวเลขเต็มที่ไม่ได้:</b> ผู้ตรวจเป็น AI ยังต้องเทียบกับคนตรวจ 20 claim (ตรงกัน ≥ 80%) · {"แบบฟอร์มพร้อมแล้ว: <code>outputs/faithfulness_human_check.csv</code> (เฉลยของ AI แยกไว้อีกไฟล์)" if hc else "ยังไม่ได้สร้างแบบฟอร์ม"} · claim ที่ถูกตัดสินว่าไม่รองรับบางส่วนเป็นการตีความของระบบ (เช่น "ตามนโยบายถือเป็น DEVIATED") ไม่ใช่ข้อเท็จจริงที่ผิด</li>
-    </ul>
-  </div>
-"""
-
-
 def takeaways_block():
     """Key takeaways after every version has 3 runs on both test sets (22 Nov). Numbers: summary.csv and the long set."""
     return """<div class="fig" id="fig-takeaways">
@@ -524,7 +481,7 @@ def takeaways_block():
       <li><b>แก้ตามหลักฐาน และยอมรับเมื่อสมมติฐานผิด:</b> งบ call 16 ไม่ช่วย (และซ่อนความผิดจากตัวตรวจซ้ำ) · prompt ของ V7 แก้ได้ 1 ข้อแต่ทำให้อีกข้อผิด ·
         ไล่ทีละข้อพบว่าสาเหตุที่เหลือคือคำค้นบนสัญญายาว (ข้อยกเว้นความเสียหายทางอ้อมไม่มีคำว่า liability) ไม่ใช่งบหรือการตีความ</li>
       <li><b>เลือกใช้:</b> V5 เป็นค่าเริ่มต้น (แม่นเท่ากันและถูกที่สุดในกลุ่ม agent) · V6 สำหรับสัญญายาวเมื่อต้องการ cross-check และตามอ้างอิง · single call เหมาะเป็น baseline หรือร่างแรกที่ต้องการเร็วและถูก แต่ต้องมีคนตรวจ quote และระวังข้อความหลอก</li>
-      <li><b>ข้อจำกัด:</b> สัญญา 10 ฉบับและ model เดียว · 3 รอบยังน้อยสำหรับทดสอบนัยสำคัญ · faithfulness ของ V6/V7 ยังไม่ได้คำนวณ · prompt ของ V7 ไม่ได้ให้ single call ด้วย</li>
+      <li><b>ข้อจำกัด:</b> สัญญา 10 ฉบับและ model เดียว · 3 รอบยังน้อยสำหรับทดสอบนัยสำคัญ · prompt ของ V7 ไม่ได้ให้ single call ด้วย</li>
     </ol>
   </div>
 """
@@ -532,7 +489,7 @@ def takeaways_block():
 
 def build():
     sm = pd.read_csv(BASE / "summary.csv").set_index("version")
-    head = ["", "เวอร์ชัน · เปลี่ยนอะไร", "บทเรียนที่ใช้", *[h for h, _, _ in COLS], "ผลตัดสินเปลี่ยนระหว่างรอบ", "รอบ", "โค้ด"]
+    head = ["", "เวอร์ชัน · เปลี่ยนอะไร", "เทคนิคที่ใช้", *[h for h, _, _ in COLS], "ผลตัดสินเปลี่ยนระหว่างรอบ", "รอบ", "โค้ด"]
     rows = []
     ncols = 3 + len(COLS) + 3
     for vid, v in VERSIONS.items():
@@ -556,7 +513,7 @@ def build():
              + ["–"] * (len(COLS) + 3) for a, (b, c) in ((k, (v["name_th"], v["concept"])) for k, v in PLANNED.items())]
     th = "".join(f"<th>{escape(h)}</th>" for h in head)
     tb = "".join(r if isinstance(r, str) else "<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
-    return takeaways_block() + protocol_block() + setup_block() + answer_matrix_block() + long_table_block() + long_matrix_block() + budget_block() + steps_block(sm) + faith_block(sm) + f"""<div class="fig" id="fig-versions">
+    return takeaways_block() + protocol_block() + setup_block() + answer_matrix_block() + long_table_block() + long_matrix_block() + budget_block() + steps_block(sm) + f"""<div class="fig" id="fig-versions">
     <div class="fig-title"><h3>วิวัฒนาการของระบบ: แต่ละเวอร์ชันเปลี่ยน harness อะไร และผลเปลี่ยนอย่างไร</h3><span class="small">ค่าเฉลี่ยของรอบที่รัน · ตัวเลขเล็กคือช่วงต่ำสุด–สูงสุด (แสดงเมื่อรอบต่างกัน)</span></div>
     <p class="note"><b>สถานะ:</b> {status}</p>
     <p class="small">Baseline: SC1 → SC2 · Agent: {' → '.join(k for k in VERSIONS if k.startswith('V'))}{(" → <span class='small'>" + ' → '.join(PLANNED) + " (แผน)</span>") if PLANNED else ""}</p>

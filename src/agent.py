@@ -136,7 +136,7 @@ def agent_tools() -> types.Tool:
 def lookup_tools() -> tuple:
     return (("search_contract", "read_passage", "follow_reference", "lookup_definition") if config.V6_TOOLS
             else ("search_contract", "read_passage"))
-MAX_OUTPUT_TOKENS = 4096  # normal tool calls and findings use < 500; caps a runaway answer (EP01 finish_reason "length")
+MAX_OUTPUT_TOKENS = 4096  # normal tool calls and findings use < 500; caps a runaway answer (finish_reason "length")
 
 
 def _passage_block(p: dict) -> str:
@@ -148,7 +148,7 @@ def _passage_block(p: dict) -> str:
 
 
 def as_contract_data(result) -> str:
-    """Wrap a search/read result so the model sees it as quoted contract text (EP08: tool output is data).
+    """Wrap a search/read result so the model sees it as quoted contract text (tool output is data).
     Plain text, not JSON: JSON escapes quotes and line breaks, and a copied escape breaks the verbatim quote check.
     Any wrapper tag inside the contract itself is neutralised, so the text cannot close the wrapper early."""
     if isinstance(result, dict) and "error" in result:
@@ -179,7 +179,7 @@ def _part_chars(p) -> int:
 
 
 class ContextBudget:
-    """Context budget (EP07). Every call re-sends the whole conversation, and old search results were the bulk of
+    """Context budget. Every call re-sends the whole conversation, and old search results were the bulk of
     it (input tokens ~7.9x the single call). Before each call:
       1. search results older than the last KEEP_TURNS tool turns become a stub that keeps the passage ids
          (they were only used to choose what to read; stubbing them after one turn made the agent search
@@ -228,7 +228,7 @@ class ContextBudget:
 
 
 class ProgressGuard:
-    """Loop detection (EP08, EP09 LoopDetector), widened to 'no progress' because exact repeats are rare here
+    """Loop detection, widened to 'no progress' because exact repeats are rare here
     (1 of 163 calls on 20 Nov) while 37% of searches returned no passage the rule had not already seen.
     - exact repeat of a search/read: not run again; the model is told where the earlier result is
     - search with no new passage: a harness note says so
@@ -331,7 +331,7 @@ def check_rule(rule: dict, doc: ContractDocument, trace: Trace, lang: str = "th"
         before, after = budget.apply(contents)
         if after < before:
             trace.event("context", rule=rule["id"], step=step, chars_before=before, chars_after=after)
-        # EP01/EP07 pre-flight: free local estimate every step (an exact count_tokens per step would cost a request)
+        # Pre-flight: free local estimate every step (an exact count_tokens per step would cost a request)
         trace.preflight(f"{rule['id']} step {step}", estimate_tokens(after + len(system_prompt())), method="chars/4")
         cfg = types.GenerateContentConfig(
             system_instruction=system_prompt().format(language=LANGUAGES[lang]),
@@ -423,7 +423,7 @@ FINDINGS:
 
 
 def cross_check(findings: list[ReviewedFinding], trace: Trace, lang: str = "th") -> list[CrossCheckNote]:
-    """V6 cross-check reviewer (EP05 reflection on the whole trajectory): 1 AI call per contract after all rules.
+    """V6 cross-check reviewer (reflection on the whole trajectory): 1 AI call per contract after all rules.
     Code keeps a note only if it cites at least two findings that exist (single findings belong to the per-rule
     verifier). Notes never change a verdict; people see them next to the findings."""
     if len(findings) < 2:

@@ -73,7 +73,7 @@ def review_single_call(pdf_path: Path, doc: ContractDocument, rules: list[dict],
         "required": ["executive_summary", "findings"]}
     language = {"th": "Thai", "en": "English"}[lang]
 
-    # EP01 modality: send the PDF only to a model that accepts PDFs; otherwise the extracted text, marked as data.
+    # Modality: send the PDF only to a model that accepts PDFs; otherwise the extracted text, marked as data.
     uploaded = None
     if config.accepts(config.MODEL, "pdf"):
         # Upload the bytes under a plain ASCII name: the Files API sends the name in an HTTP header,
@@ -94,7 +94,7 @@ def review_single_call(pdf_path: Path, doc: ContractDocument, rules: list[dict],
 
     try:
         prompt = PROMPT.format(rules=rules_text, language=language)
-        # EP01/EP07 pre-flight: count the real input once (count_tokens is not billed); estimate if it fails
+        # Pre-flight: count the real input once (count_tokens is not billed); estimate if it fails
         try:
             n = client.models.count_tokens(model=config.MODEL, contents=[contract_part, prompt]).total_tokens
             trace.preflight("baseline single call", n)
@@ -109,7 +109,7 @@ def review_single_call(pdf_path: Path, doc: ContractDocument, rules: list[dict],
         if err:
             problems = [err] + problems
         missing = [r for r in rules if r["id"] not in good]
-        if missing:  # EP02: validate, then ask again once for the rules that failed (instead of dropping them)
+        if missing:  # Validate, then ask again once for the rules that failed (instead of dropping them)
             trace.event("reask", rules=[r["id"] for r in missing], problems=problems[:6])
             sub = "\n".join(line for line in rules_text.splitlines() if any(line.startswith(f"- {r['id']} ") for r in missing))
             again, _ = _parse(ask(PROMPT.format(rules=sub, language=language) + "\n\n" +

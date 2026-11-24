@@ -1,11 +1,11 @@
-"""Package H (EP01 builder's dials + EP02 validate-and-re-ask) WITHOUT an API key.
+"""Package H (model-call settings + validate-and-re-ask) WITHOUT an API key.
 
 1. finish_reason + model_version: every LLM record keeps both; a cut answer (MAX_TOKENS) adds a finish_reason event.
 2. Lock the provider while measuring: with EVAL_NO_FALLBACK the fallback model is never tried.
 3. Pre-flight: the size is recorded before sending; a request above 90% of the model's window is refused with a
    clear message, before any call is made.
 4. Modality: an unknown (text-only) model gets the extracted text, never the PDF; a scanned page is not sent to it.
-5. Single call re-ask (EP02): a finding that fails validation is asked for again once, instead of being dropped.
+5. Single call re-ask: a finding that fails validation is asked for again once, instead of being dropped.
 6. Cross-check: an unparseable (cut) answer gives no notes instead of a crash.
 Usage:  python -m eval.test_package_h_offline
 """

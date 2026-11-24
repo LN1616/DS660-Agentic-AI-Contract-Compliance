@@ -72,14 +72,14 @@ class Trace:
         reason = finish_reason(resp)
         self.records.append({"type": "llm", "label": label, "sec": round(time.time() - t0, 2),
                              "tokens_in": tin, "tokens_out": tout, "model": model or config.MODEL,
-                             # EP01: the version the provider actually served (a model name can move to a new release)
+                             # The version the provider actually served (a model name can move to a new release)
                              "model_version": getattr(resp, "model_version", None), "finish_reason": reason})
-        if reason not in (None, "STOP"):  # EP01: a cut or blocked answer looks like a normal one unless checked
+        if reason not in (None, "STOP"):  # A cut or blocked answer looks like a normal one unless checked
             self.records.append({"type": "finish_reason", "label": label, "reason": reason})
         return resp
 
     def preflight(self, label: str, tokens: int, model: str | None = None, method: str = "count_tokens"):
-        """EP01 / EP07: know the input size before sending. Records it; refuses a request that would not fit
+        """Know the input size before sending. Records it; refuses a request that would not fit
         (above PREFLIGHT_MAX_SHARE of the model's window) with a clear message instead of a provider error."""
         m = model or config.MODEL
         limit = config.model_caps(m)["context"]
@@ -91,7 +91,7 @@ class Trace:
 
     def call_model(self, make, label: str):
         """make(model_name) -> one API call. Tries config.MODEL; when it keeps failing with a retryable error
-        and config.FALLBACK_MODEL is set, the same request goes to the fallback model (EP08 graceful failure).
+        and config.FALLBACK_MODEL is set, the same request goes to the fallback model (graceful failure).
         Every call records which model answered, so results can be reported per model."""
         models = [config.MODEL]
         if config.FALLBACK_MODEL and config.FALLBACK_MODEL != config.MODEL and not config.EVAL_NO_FALLBACK:
